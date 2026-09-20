@@ -3,7 +3,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from datetime import datetime, timezone
-import json, os, re, sqlite3, threading, urllib.parse, urllib.request
+import json, os, re, sqlite3, threading, urllib.parse, urllib.request, webbrowser
+import uvicorn
 
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("AUTOTECH_DATA_DIR", APP_DIR / "data"))
@@ -171,3 +172,8 @@ def evidence(limit:int=Query(50,ge=1,le=200)):
 @app.get("/api/license")
 def license_info():
     return {"dataset":"VehiclesDB","version":DATASET_VERSION,"license":"CC BY 4.0","attribution":"Vehicle data by VehiclesDB","url":"https://vehiclesdb.com"}
+
+if __name__ == "__main__":
+    init_db()
+    threading.Timer(1.5, lambda: webbrowser.open("http://127.0.0.1:8000")).start()
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
