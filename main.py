@@ -7,7 +7,11 @@ import json, os, re, sqlite3, threading, urllib.parse, urllib.request, webbrowse
 import uvicorn
 
 APP_DIR = Path(__file__).resolve().parent
-DATA_DIR = Path(os.environ.get("AUTOTECH_DATA_DIR", APP_DIR / "data"))
+if os.name == "nt":
+    default_data_dir = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "AutoTech Europe" / "Data"
+else:
+    default_data_dir = APP_DIR / "data"
+DATA_DIR = Path(os.environ.get("AUTOTECH_DATA_DIR", default_data_dir))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB = DATA_DIR / "autotech.db"
 VEHICLES_URL = "https://cdn.jsdelivr.net/gh/vehiclesdb/vehiclesdb@v2026.09.1/dist/vehicles.json"
