@@ -128,14 +128,23 @@ def search_web(query,limit=8):
 
 @app.on_event("startup")
 def startup():
-    init_db(); threading.Thread(target=lambda:refresh_database(False),daemon=True).start()
+    init_db()
+    # Si existe una base antigua o incompleta, se fuerza una sincronización.
+    # VehiclesDB 2026.09.1 contiene miles de modelos; 929 registros indican
+    # una base local heredada, no el catálogo completo.
+    def sync():
+        if meta_get("dataset_version") != DATASET_VERSION or count_vehicles() < 5000:
+            refresh_database(True)
+        else:
+            refresh_database(False)
+    threading.Thread(target=sync,daemon=True).start()
 
 @app.get("/")
 def home(): return FileResponse(APP_DIR/"index.html")
 
 @app.get("/api/status")
 def status():
-    return {"version":app.version,"dataset":meta_get("dataset_version") or "Sin descargar","count":count_vehicles(),"updated_at":meta_get("dataset_updated_at"),"source":"VehiclesDB","license":"CC BY 4.0"}
+    return {"version":app.version,"dataset":meta_get("dataset_version") or "Sin descargar","count":count_vehicles(),"updated_at":meta_get("dataset_updated_at"),"source":"VehiclesDB","license":"CC BY 4.0","warning":"La base local parece incompleta" if count_vehicles() < 5000 else None}
 
 @app.post("/api/database/refresh")
 def refresh(): return refresh_database(True)
