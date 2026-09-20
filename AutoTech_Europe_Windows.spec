@@ -31,6 +31,5 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz, a.scripts, a.binaries, a.datas, [],
     name='AutoTech_Europe',
-    icon='assets/autotech_europe.ico',
     console=True,
 )
