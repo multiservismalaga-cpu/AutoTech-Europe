@@ -139,11 +139,25 @@ def refresh(): return refresh_database(True)
 @app.get("/api/vehicles")
 def vehicles(q:str=Query("",max_length=120),limit:int=Query(30,ge=1,le=100)):
     c=db()
+    try:
+        rows=c.execute(
+            "SELECT id,make,model,kind,body_types,years,availability,sources FROM vehicles ORDER BY make,model"
+        ).fetchall()
+    finally:
+        c.close()
+
     if q.strip():
-        rows=c.execute('SELECT id,make,model,kind,body_types,years,availability,sources FROM vehicles WHERE lower(make || " " || model) LIKE ? ORDER BY make,model LIMIT ?',(f"%{normalize(q)}%",limit)).fetchall()
-    else:
-        rows=c.execute("SELECT id,make,model,kind,body_types,years,availability,sources FROM vehicles ORDER BY make,model LIMIT ?",(limit,)).fetchall()
-    c.close(); return [dict(r) for r in rows]
+        needle = normalize(q)
+        filtered = []
+        for row in rows:
+            haystack = normalize(f"{row['make']} {row['model']}")
+            if needle in haystack:
+                filtered.append(row)
+                if len(filtered) >= limit:
+                    break
+        return [dict(r) for r in filtered]
+
+    return [dict(r) for r in rows[:limit]]
 
 @app.get("/api/vehicle/{vehicle_id:path}")
 def vehicle(vehicle_id:str):
