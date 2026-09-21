@@ -14,7 +14,7 @@ else:
 DATA_DIR = Path(os.environ.get("AUTOTECH_DATA_DIR", default_data_dir))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB = DATA_DIR / "autotech.db"
-VEHICLES_URL = "https://cdn.jsdelivr.net/gh/vehiclesdb/vehiclesdb@v2026.09.1/dist/vehicles.json"
+VEHICLES_SQLITE_URL = "https://cdn.jsdelivr.net/gh/vehiclesdb/vehiclesdb@v2026.09.1/dist/catalog.sqlite"
 DATASET_VERSION = "VehiclesDB 2026.09.1"
 
 app = FastAPI(title="AutoTech Europe", version="1.3.0")
@@ -88,23 +88,73 @@ def count_vehicles():
 def refresh_database(force=True):
     if not force and meta_get("dataset_version"):
         return {"ok":True,"updated":False,"version":meta_get("dataset_version"),"count":count_vehicles()}
+    tmp = DATA_DIR / "vehiclesdb_catalog.sqlite.download"
     try:
-        req=urllib.request.Request(VEHICLES_URL,headers={"User-Agent":"AutoTech-Europe/1.3"})
-        with urllib.request.urlopen(req,timeout=45) as r: payload=json.loads(r.read().decode("utf-8"))
-        rows=parse_dataset(payload)
-        if not rows: raise ValueError("El dataset no contiene registros interpretables")
-        c=db(); c.execute("BEGIN"); c.execute("DELETE FROM vehicles")
-        for x in rows:
-            c.execute("INSERT OR REPLACE INTO vehicles VALUES(?,?,?,?,?,?,?,?,?,?)",
-              (x["id"],x["make"],x["model"],x["kind"],json.dumps(x["body_types"],ensure_ascii=False),
-               json.dumps(x["years"],ensure_ascii=False),json.dumps(x["availability"],ensure_ascii=False),
-               json.dumps(x["popularity"],ensure_ascii=False),json.dumps(x["sources"],ensure_ascii=False),
-               json.dumps(x["raw_json"],ensure_ascii=False)))
+        req=urllib.request.Request(VEHICLES_SQLITE_URL,headers={"User-Agent":"AutoTech-Europe/1.4"})
+        with urllib.request.urlopen(req,timeout=180) as r:
+            with open(tmp,"wb") as out:
+                while True:
+                    chunk=r.read(1024*1024)
+                    if not chunk: break
+                    out.write(chunk)
+
+        src=sqlite3.connect(tmp)
+        src.row_factory=sqlite3.Row
+        tables={r["name"] for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "models" not in tables or "makes" not in tables:
+            src.close()
+            raise ValueError("El catálogo SQLite descargado no tiene la estructura esperada")
+
+        make_rows={r["id"]:r["name"] for r in src.execute("SELECT id,name FROM makes")}
+        model_rows=src.execute(
+            "SELECT id,kind,make_id,slug,name,body_types,global_popularity_decile FROM models"
+        ).fetchall()
+
+        availability={}
+        if "availability" in tables:
+            for r in src.execute("SELECT model_id,country FROM availability"):
+                availability.setdefault(r["model_id"],[]).append(r["country"])
+
+        src.close()
+
+        if not model_rows:
+            raise ValueError("El catálogo SQLite no contiene modelos")
+
+        c=db()
+        c.execute("BEGIN")
+        c.execute("DELETE FROM vehicles")
+        for row in model_rows:
+            make=make_rows.get(row["make_id"],"Desconocido")
+            body=row["body_types"]
+            avail=availability.get(row["id"],[])
+            raw={
+                "id":row["id"], "kind":row["kind"], "make_id":row["make_id"],
+                "slug":row["slug"], "name":row["name"],
+                "body_types":body, "global_popularity_decile":row["global_popularity_decile"],
+                "availability":avail
+            }
+            c.execute(
+                "INSERT OR REPLACE INTO vehicles VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (row["id"],make,row["name"],row["kind"],body,
+                 None,json.dumps(avail,ensure_ascii=False),
+                 json.dumps(row["global_popularity_decile"],ensure_ascii=False),
+                 None,json.dumps(raw,ensure_ascii=False))
+            )
         c.commit(); c.close()
-        meta_set("dataset_version",DATASET_VERSION); meta_set("dataset_updated_at",datetime.now(timezone.utc).isoformat())
-        return {"ok":True,"updated":True,"version":DATASET_VERSION,"count":len(rows)}
+        meta_set("dataset_version",DATASET_VERSION)
+        meta_set("dataset_updated_at",datetime.now(timezone.utc).isoformat())
+        return {"ok":True,"updated":True,"version":DATASET_VERSION,"count":len(model_rows)}
     except Exception as exc:
+        try:
+            if tmp.exists(): tmp.unlink()
+        except Exception:
+            pass
         return {"ok":False,"error":str(exc),"version":meta_get("dataset_version"),"count":count_vehicles()}
+    finally:
+        try:
+            if tmp.exists(): tmp.unlink()
+        except Exception:
+            pass
 
 def classify_source(url):
     domain=urllib.parse.urlparse(url).netloc.lower()
