@@ -170,68 +170,102 @@ def classify_source(url):
     return "FUENTE TÉCNICA / WEB"
 
 def search_web(query,limit=8):
-    url="https://html.duckduckgo.com/html/?"+urllib.parse.urlencode({"q":query})
-    req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 AutoTech-Europe"})
+    # DuckDuckGo HTML aplica controles anti-bot a clientes que parecen
+    # automatizados. Simulamos una navegación real: POST del formulario,
+    # Referer y Sec-Fetch-Mode/Dest.
+    url="https://html.duckduckgo.com/html/"
+    payload=urllib.parse.urlencode({"q":query}).encode("utf-8")
+    headers={
+        "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
+        "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language":"es-ES,es;q=0.9,en;q=0.7",
+        "Content-Type":"application/x-www-form-urlencoded",
+        "Referer":"https://html.duckduckgo.com/",
+        "Sec-Fetch-Mode":"navigate",
+        "Sec-Fetch-Site":"same-origin",
+        "Sec-Fetch-Dest":"document",
+    }
+    req=urllib.request.Request(url,data=payload,headers=headers,method="POST")
     with urllib.request.urlopen(req,timeout=20) as r:
         html=r.read().decode("utf-8","ignore")
 
-    # Parser HTML de la librería estándar: evita depender del orden exacto
-    # de atributos/clases que use DuckDuckGo en cada respuesta.
     class DDGParser(HTMLParser):
         def __init__(self):
             super().__init__(convert_charrefs=True)
             self.results=[]
-            self.snippets=[]
-            self.current_link=None
-            self.current_link_text=[]
-            self.current_snippet=[]
+            self.current=None
+            self.in_title=False
             self.in_snippet=False
+            self.buf=[]
         def handle_starttag(self,tag,attrs):
             attrs=dict(attrs)
             classes=(attrs.get("class") or "").split()
-            if tag=="a" and "result__a" in classes and attrs.get("href"):
-                self.current_link={"url":attrs["href"],"title":[]}
-                self.current_link_text=[]
-            if "result__snippet" in classes:
+            if "result__a" in classes and attrs.get("href"):
+                self.current={"url":attrs["href"],"title":"","snippet":""}
+                self.in_title=True
+                self.buf=[]
+            elif self.current and "result__snippet" in classes:
                 self.in_snippet=True
-                self.current_snippet=[]
+                self.buf=[]
         def handle_data(self,data):
-            if self.current_link is not None:
-                self.current_link_text.append(data)
-            if self.in_snippet:
-                self.current_snippet.append(data)
+            if self.current and (self.in_title or self.in_snippet):
+                self.buf.append(data)
         def handle_endtag(self,tag):
-            if tag=="a" and self.current_link is not None:
-                self.current_link["title"]=" ".join(self.current_link_text)
-                self.results.append(self.current_link)
-                self.current_link=None
-                self.current_link_text=[]
-            if self.in_snippet and tag in ("a","div"):
-                text=" ".join(self.current_snippet).strip()
-                if text:
-                    self.snippets.append(text)
+            if self.current and self.in_title and tag=="a":
+                self.current["title"]=" ".join(self.buf).strip()
+                self.in_title=False
+                self.buf=[]
+            elif self.current and self.in_snippet and tag in ("a","div"):
+                self.current["snippet"]=" ".join(self.buf).strip()
                 self.in_snippet=False
-                self.current_snippet=[]
+                self.buf=[]
+            if self.current and not self.in_title and not self.in_snippet and tag=="div":
+                # Los resultados suelen estar contenidos en un div .result.
+                # Solo cerramos cuando ya tenemos título y URL.
+                if self.current.get("title"):
+                    self.results.append(self.current)
+                    self.current=None
 
     parser=DDGParser()
     parser.feed(html)
+
+    # Fallback sencillo por si DDG cambia el contenedor del resultado.
+    if not parser.results:
+        class LinkParser(HTMLParser):
+            def __init__(self):
+                super().__init__(convert_charrefs=True)
+                self.items=[]
+                self.item=None
+                self.active=False
+                self.buf=[]
+            def handle_starttag(self,tag,attrs):
+                a=dict(attrs); classes=(a.get("class") or "").split()
+                if tag=="a" and "result__a" in classes and a.get("href"):
+                    self.item={"url":a["href"],"title":""}; self.active=True; self.buf=[]
+            def handle_data(self,data):
+                if self.active: self.buf.append(data)
+            def handle_endtag(self,tag):
+                if self.active and tag=="a":
+                    self.item["title"]=" ".join(self.buf).strip()
+                    self.items.append(self.item); self.item=None; self.active=False; self.buf=[]
+        lp=LinkParser(); lp.feed(html)
+        parser.results=lp.items
+
     out=[]
-    for idx,item in enumerate(parser.results[:limit]):
+    for item in parser.results:
         raw_url=urllib.parse.unquote(item["url"])
-        href=raw_url
         parsed=urllib.parse.urlparse(raw_url)
+        href=raw_url
         if parsed.netloc.endswith("duckduckgo.com") and parsed.path.startswith("/l/"):
             target=urllib.parse.parse_qs(parsed.query).get("uddg",[])
-            if target:
-                href=target[0]
-        if not href.startswith(("http://","https://")):
-            continue
-        snippet=parser.snippets[idx] if idx < len(parser.snippets) else ""
+            if target: href=target[0]
+        if not href.startswith(("http://","https://")): continue
         out.append({
-            "title":re.sub(r"\s+"," ",item["title"]).strip(),
+            "title":re.sub(r"\\s+"," ",item.get("title","")).strip(),
             "url":href,
-            "snippet":re.sub(r"\s+"," ",snippet).strip()
+            "snippet":re.sub(r"\\s+"," ",item.get("snippet","")).strip()
         })
+        if len(out)>=limit: break
     return out
 
 @app.on_event("startup")
