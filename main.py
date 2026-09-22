@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from datetime import datetime, timezone
 import json, os, re, sqlite3, threading, urllib.parse, urllib.request, webbrowser
+from html.parser import HTMLParser
 import uvicorn
 
 APP_DIR = Path(__file__).resolve().parent
@@ -174,24 +175,49 @@ def search_web(query,limit=8):
     with urllib.request.urlopen(req,timeout=20) as r:
         html=r.read().decode("utf-8","ignore")
 
-    # DDG puede cambiar el orden de atributos HTML. No dependemos de que
-    # class aparezca antes que href; ambos son atributos independientes.
-    import html as html_module
+    # Parser HTML de la librería estándar: evita depender del orden exacto
+    # de atributos/clases que use DuckDuckGo en cada respuesta.
+    class DDGParser(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.results=[]
+            self.snippets=[]
+            self.current_link=None
+            self.current_link_text=[]
+            self.current_snippet=[]
+            self.in_snippet=False
+        def handle_starttag(self,tag,attrs):
+            attrs=dict(attrs)
+            classes=(attrs.get("class") or "").split()
+            if tag=="a" and "result__a" in classes and attrs.get("href"):
+                self.current_link={"url":attrs["href"],"title":[]}
+                self.current_link_text=[]
+            if "result__snippet" in classes:
+                self.in_snippet=True
+                self.current_snippet=[]
+        def handle_data(self,data):
+            if self.current_link is not None:
+                self.current_link_text.append(data)
+            if self.in_snippet:
+                self.current_snippet.append(data)
+        def handle_endtag(self,tag):
+            if tag=="a" and self.current_link is not None:
+                self.current_link["title"]=" ".join(self.current_link_text)
+                self.results.append(self.current_link)
+                self.current_link=None
+                self.current_link_text=[]
+            if self.in_snippet and tag in ("a","div"):
+                text=" ".join(self.current_snippet).strip()
+                if text:
+                    self.snippets.append(text)
+                self.in_snippet=False
+                self.current_snippet=[]
+
+    parser=DDGParser()
+    parser.feed(html)
     out=[]
-    link_pattern=re.compile(
-        r'<a\b(?=[^>]*\bclass=["\'][^"\']*\bresult__a\b)'
-        r'(?=[^>]*\bhref=["\']([^"\']+)["\'])[^>]*>(.*?)</a>',
-        re.I|re.S
-    )
-    snippet_pattern=re.compile(
-        r'<a\b(?=[^>]*\bclass=["\'][^"\']*\bresult__snippet\b)'
-        r'[^>]*>(.*?)</a>',
-        re.I|re.S
-    )
-    snippets=snippet_pattern.findall(html)
-    for idx,m in enumerate(link_pattern.finditer(html)):
-        raw_url=html_module.unescape(m.group(1))
-        title=html_module.unescape(re.sub(r"<.*?>"," ",m.group(2)))
+    for idx,item in enumerate(parser.results[:limit]):
+        raw_url=urllib.parse.unquote(item["url"])
         href=raw_url
         parsed=urllib.parse.urlparse(raw_url)
         if parsed.netloc.endswith("duckduckgo.com") and parsed.path.startswith("/l/"):
@@ -200,16 +226,12 @@ def search_web(query,limit=8):
                 href=target[0]
         if not href.startswith(("http://","https://")):
             continue
-        snippet=""
-        if idx < len(snippets):
-            snippet=html_module.unescape(re.sub(r"<.*?>"," ",snippets[idx]))
+        snippet=parser.snippets[idx] if idx < len(parser.snippets) else ""
         out.append({
-            "title":re.sub(r"\s+"," ",title).strip(),
+            "title":re.sub(r"\s+"," ",item["title"]).strip(),
             "url":href,
             "snippet":re.sub(r"\s+"," ",snippet).strip()
         })
-        if len(out)>=limit:
-            break
     return out
 
 @app.on_event("startup")
