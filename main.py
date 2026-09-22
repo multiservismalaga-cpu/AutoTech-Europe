@@ -17,7 +17,7 @@ DB = DATA_DIR / "autotech.db"
 VEHICLES_SQLITE_URL = "https://cdn.jsdelivr.net/gh/vehiclesdb/vehiclesdb@v2026.09.1/dist/catalog.sqlite"
 DATASET_VERSION = "VehiclesDB 2026.09.1"
 
-app = FastAPI(title="AutoTech Europe", version="1.3.0")
+app = FastAPI(title="AutoTech Europe", version="1.4.0")
 app.mount("/static", StaticFiles(directory=APP_DIR), name="static")
 
 def db():
@@ -36,6 +36,11 @@ def init_db():
     );
     CREATE INDEX IF NOT EXISTS idx_vehicle_make ON vehicles(make);
     CREATE INDEX IF NOT EXISTS idx_vehicle_model ON vehicles(model);
+    CREATE TABLE IF NOT EXISTS saved_vehicles(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, vin TEXT UNIQUE NOT NULL,
+      vehicle_id TEXT, created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_saved_vehicle_vin ON saved_vehicles(vin);
     CREATE TABLE IF NOT EXISTS evidence(
       id INTEGER PRIMARY KEY AUTOINCREMENT, vehicle_id TEXT, query TEXT, category TEXT,
       title TEXT, url TEXT, domain TEXT, source_class TEXT, confidence TEXT,
@@ -204,23 +209,71 @@ def vehicles(q:str=Query("",max_length=120),limit:int=Query(30,ge=1,le=100)):
     c=db()
     try:
         rows=c.execute(
-            "SELECT id,make,model,kind,body_types,years,availability,sources FROM vehicles ORDER BY make,model"
+            "SELECT id,make,model,kind,body_types,years,availability,sources,raw_json FROM vehicles"
         ).fetchall()
     finally:
         c.close()
 
-    if q.strip():
-        needle = normalize(q)
-        filtered = []
-        for row in rows:
-            haystack = normalize(f"{row['make']} {row['model']}")
-            if needle in haystack:
-                filtered.append(row)
-                if len(filtered) >= limit:
-                    break
-        return [dict(r) for r in filtered]
+    if not q.strip():
+        return [dict(r) for r in sorted(rows,key=lambda x:(normalize(x["make"]),normalize(x["model"])))[:limit]]
 
-    return [dict(r) for r in rows[:limit]]
+    needle=normalize(q)
+    tokens=needle.split()
+
+    if len(needle.replace(" ","")) == 17:
+        compact=needle.replace(" ","").upper()
+        c=db()
+        saved=c.execute("SELECT vehicle_id FROM saved_vehicles WHERE vin=?",(compact,)).fetchone()
+        c.close()
+        if saved and saved["vehicle_id"]:
+            match=next((r for r in rows if r["id"]==saved["vehicle_id"]),None)
+            if match:
+                return [dict(match)]
+
+    ranked=[]
+    for row in rows:
+        raw=row["raw_json"] or ""
+        haystack=normalize(f"{row['make']} {row['model']} {raw}")
+        if all(token in haystack for token in tokens):
+            score=0
+            name=normalize(f"{row['make']} {row['model']}")
+            if needle == name: score += 100
+            if name.startswith(needle): score += 50
+            if needle in name: score += 30
+            score += sum(8 for token in tokens if token in name.split())
+            score += sum(2 for token in tokens if token in haystack)
+            ranked.append((score,row))
+    ranked.sort(key=lambda x:(-x[0],normalize(x[1]["make"]),normalize(x[1]["model"])))
+    return [dict(row) for _,row in ranked[:limit]]
+
+@app.post("/api/vin")
+def save_vin(payload:dict):
+    raw=str(payload.get("vin","")).strip().upper().replace(" ","").replace("-","")
+    if not re.fullmatch(r"[A-HJ-NPR-Z0-9]{17}",raw):
+        return JSONResponse({"ok":False,"error":"El VIN debe tener 17 caracteres válidos (sin I, O ni Q)."},status_code=400)
+    vehicle_id=payload.get("vehicle_id")
+    now=datetime.now(timezone.utc).isoformat()
+    c=db()
+    try:
+        c.execute("""INSERT INTO saved_vehicles(vin,vehicle_id,created_at)
+                     VALUES(?,?,?)
+                     ON CONFLICT(vin) DO UPDATE SET
+                       vehicle_id=excluded.vehicle_id,
+                       created_at=excluded.created_at""",(raw,vehicle_id,now))
+        c.commit()
+    finally:
+        c.close()
+    return {"ok":True,"vin":raw,"vehicle_id":vehicle_id,"saved_at":now}
+
+@app.get("/api/vin/{vin}")
+def get_vin(vin:str):
+    raw=vin.strip().upper().replace(" ","").replace("-","")
+    c=db()
+    row=c.execute("SELECT vin,vehicle_id,created_at FROM saved_vehicles WHERE vin=?",(raw,)).fetchone()
+    c.close()
+    if not row:
+        return JSONResponse({"error":"VIN no encontrado"},status_code=404)
+    return dict(row)
 
 @app.get("/api/vehicle/{vehicle_id:path}")
 def vehicle(vehicle_id:str):
