@@ -171,14 +171,45 @@ def classify_source(url):
 def search_web(query,limit=8):
     url="https://html.duckduckgo.com/html/?"+urllib.parse.urlencode({"q":query})
     req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 AutoTech-Europe"})
-    with urllib.request.urlopen(req,timeout=20) as r: html=r.read().decode("utf-8","ignore")
+    with urllib.request.urlopen(req,timeout=20) as r:
+        html=r.read().decode("utf-8","ignore")
+
+    # DDG puede cambiar el orden de atributos HTML. No dependemos de que
+    # class aparezca antes que href; ambos son atributos independientes.
+    import html as html_module
     out=[]
-    for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>',html,re.S|re.I):
-        href=urllib.parse.unquote(m.group(1)); title=re.sub(r"<.*?>","",m.group(2))
-        tail=html[m.end():m.end()+1800]; sm=re.search(r'<a[^>]+class="result__snippet"[^>]*>(.*?)</a>',tail,re.S|re.I)
-        snippet=re.sub(r"<.*?>"," ",sm.group(1)) if sm else ""
-        out.append({"title":re.sub(r"\s+"," ",title).strip(),"url":href,"snippet":re.sub(r"\s+"," ",snippet).strip()})
-        if len(out)>=limit: break
+    link_pattern=re.compile(
+        r'<a\\b(?=[^>]*\\bclass=["\'][^"\']*\\bresult__a\\b)'
+        r'(?=[^>]*\\bhref=["\']([^"\']+)["\'])[^>]*>(.*?)</a>',
+        re.I|re.S
+    )
+    snippet_pattern=re.compile(
+        r'<a\\b(?=[^>]*\\bclass=["\'][^"\']*\\bresult__snippet\\b)'
+        r'[^>]*>(.*?)</a>',
+        re.I|re.S
+    )
+    snippets=snippet_pattern.findall(html)
+    for idx,m in enumerate(link_pattern.finditer(html)):
+        raw_url=html_module.unescape(m.group(1))
+        title=html_module.unescape(re.sub(r"<.*?>"," ",m.group(2)))
+        href=raw_url
+        parsed=urllib.parse.urlparse(raw_url)
+        if parsed.netloc.endswith("duckduckgo.com") and parsed.path.startswith("/l/"):
+            target=urllib.parse.parse_qs(parsed.query).get("uddg",[])
+            if target:
+                href=target[0]
+        if not href.startswith(("http://","https://")):
+            continue
+        snippet=""
+        if idx < len(snippets):
+            snippet=html_module.unescape(re.sub(r"<.*?>"," ",snippets[idx]))
+        out.append({
+            "title":re.sub(r"\\s+"," ",title).strip(),
+            "url":href,
+            "snippet":re.sub(r"\\s+"," ",snippet).strip()
+        })
+        if len(out)>=limit:
+            break
     return out
 
 @app.on_event("startup")
