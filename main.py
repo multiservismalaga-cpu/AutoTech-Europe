@@ -179,12 +179,12 @@ def search_web(query,limit=8):
     import html as html_module
     out=[]
     link_pattern=re.compile(
-        r'<a\\b(?=[^>]*\\bclass=["\'][^"\']*\\bresult__a\\b)'
-        r'(?=[^>]*\\bhref=["\']([^"\']+)["\'])[^>]*>(.*?)</a>',
+        r'<a\b(?=[^>]*\bclass=["\'][^"\']*\bresult__a\b)'
+        r'(?=[^>]*\bhref=["\']([^"\']+)["\'])[^>]*>(.*?)</a>',
         re.I|re.S
     )
     snippet_pattern=re.compile(
-        r'<a\\b(?=[^>]*\\bclass=["\'][^"\']*\\bresult__snippet\\b)'
+        r'<a\b(?=[^>]*\bclass=["\'][^"\']*\bresult__snippet\b)'
         r'[^>]*>(.*?)</a>',
         re.I|re.S
     )
@@ -204,9 +204,9 @@ def search_web(query,limit=8):
         if idx < len(snippets):
             snippet=html_module.unescape(re.sub(r"<.*?>"," ",snippets[idx]))
         out.append({
-            "title":re.sub(r"\\s+"," ",title).strip(),
+            "title":re.sub(r"\s+"," ",title).strip(),
             "url":href,
-            "snippet":re.sub(r"\\s+"," ",snippet).strip()
+            "snippet":re.sub(r"\s+"," ",snippet).strip()
         })
         if len(out)>=limit:
             break
