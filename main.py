@@ -47,6 +47,13 @@ def init_db():
       title TEXT, url TEXT, domain TEXT, source_class TEXT, confidence TEXT,
       snippet TEXT, fetched_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS technical_records(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, vehicle_id TEXT NOT NULL, category TEXT NOT NULL,
+      field TEXT NOT NULL, value TEXT, unit TEXT, source_title TEXT, source_url TEXT,
+      source_class TEXT, confidence TEXT, applicable_from TEXT, applicable_to TEXT,
+      notes TEXT, created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_technical_vehicle_category ON technical_records(vehicle_id,category);
     """)
     c.commit(); c.close()
 
@@ -167,7 +174,7 @@ def seed_verified_bmw_g20_320d():
     # documentación pública de BMW. No se rellenan mantenimiento, pares,
     # distribución o diagnosis sin una fuente específica de variante.
     c=db()
-    exists=c.execute("SELECT 1 FROM technical_records WHERE vehicle_id LIKE ? LIMIT 1",("car/bmw/%320d%",)).fetchone()
+    exists=c.execute("SELECT 1 FROM technical_records WHERE vehicle_id=? LIMIT 1",("car/bmw/3-series-320d",)).fetchone()
     if exists:
         c.close(); return
     now=datetime.now(timezone.utc).isoformat()
@@ -295,6 +302,7 @@ def search_web(query,limit=8):
 @app.on_event("startup")
 def startup():
     init_db()
+    seed_verified_bmw_g20_320d()
     # Si existe una base antigua o incompleta, se fuerza una sincronización.
     # VehiclesDB 2026.09.1 contiene miles de modelos; 929 registros indican
     # una base local heredada, no el catálogo completo.
@@ -413,6 +421,20 @@ def technical(vehicle_id:str, category:str=Query("")):
         rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(vehicle_id,category)).fetchall()
     else:
         rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(vehicle_id,)).fetchall()
+
+    # El ID del catálogo y el ID técnico pueden ser distintos. Solo usamos
+    # el perfil BMW G20 320d cuando el vehículo seleccionado coincide realmente.
+    if not rows:
+        v=c.execute("SELECT make,model FROM vehicles WHERE id=?",(vehicle_id,)).fetchone()
+        if v:
+            make=normalize(v["make"])
+            model=normalize(v["model"])
+            if make=="bmw" and "320d" in model and "3 series" in model:
+                fallback_id="car/bmw/3-series-320d"
+                if category:
+                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
+                else:
+                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(fallback_id,)).fetchall()
     c.close()
     return [dict(r) for r in rows]
 
