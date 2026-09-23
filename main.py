@@ -428,7 +428,9 @@ def vehicle(vehicle_id:str):
 @app.post("/api/research")
 def research(payload:dict):
     make=payload.get("make",""); model=payload.get("model",""); year=payload.get("year",""); engine=payload.get("engine",""); category=payload.get("category","general"); vehicle_id=payload.get("vehicle_id")
-    query=" ".join(x for x in [make,model,year,engine,category,"technical specifications"] if x)
+    category_terms={"technical specifications":"especificaciones técnicas ficha técnica","maintenance":"mantenimiento intervalos servicio","timing":"distribución correa cadena","torque":"pares de apriete","lubricants":"fluidos aceite lubricantes capacidades","diagnosis":"diagnóstico averías pruebas","drawings":"esquema eléctrico cableado","fuses":"fusibles caja fusibles","oem":"referencias OEM fabricante","repair manuals":"manual reparación procedimiento","engine management":"gestión motor diagnosis","comfort electronics":"electrónica confort carrocería","repair times":"tiempos reparación","recalls":"campañas llamadas a revisión","smart fix":"solución técnica caso","cost estimate":"coste reparación presupuesto"}
+term=category_terms.get(category,category)
+query=" ".join(x for x in [make,model,year,engine,term] if x)
     try: results=search_web(query)
     except Exception as exc: return {"ok":False,"error":f"No se pudo consultar Internet: {exc}","results":[]}
     now=datetime.now(timezone.utc).isoformat(); c=db()
