@@ -431,8 +431,10 @@ def research(payload:dict):
     category_terms={"technical specifications":"especificaciones técnicas ficha técnica","maintenance":"mantenimiento intervalos servicio","timing":"distribución correa cadena","torque":"pares de apriete","lubricants":"fluidos aceite lubricantes capacidades","diagnosis":"diagnóstico averías pruebas","drawings":"esquema eléctrico cableado","fuses":"fusibles caja fusibles","oem":"referencias OEM fabricante","repair manuals":"manual reparación procedimiento","engine management":"gestión motor diagnosis","comfort electronics":"electrónica confort carrocería","repair times":"tiempos reparación","recalls":"campañas llamadas a revisión","smart fix":"solución técnica caso","cost estimate":"coste reparación presupuesto"}
 term=category_terms.get(category,category)
 query=" ".join(x for x in [make,model,year,engine,term] if x)
-    try: results=search_web(query)
-    except Exception as exc: return {"ok":False,"error":f"No se pudo consultar Internet: {exc}","results":[]}
+    try:
+        results=search_web(query)
+    except Exception as exc:
+        return {"ok":False,"error":f"No se pudo consultar Internet: {exc}","results":[]}
     now=datetime.now(timezone.utc).isoformat(); c=db()
     for item in results:
         c.execute("INSERT INTO evidence(vehicle_id,query,category,title,url,domain,source_class,confidence,snippet,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
