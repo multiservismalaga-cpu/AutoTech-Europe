@@ -28,7 +28,20 @@ async function openVehicle(id){
  $("#research").onclick=()=>research();$("#savevin").onclick=saveVin;document.querySelectorAll(".module-btn").forEach(b=>b.onclick=()=>researchCategory(b.dataset.category));$("#detail").scrollIntoView({behavior:"smooth"})
 }
 async function saveVin(){const vin=$("#vin").value.trim();$("#vinstatus").textContent="Guardando…";try{const r=await api("/api/vin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({vin,vehicle_id:selected?.id||null})});$("#vinstatus").textContent=r.ok?"VIN guardado para este vehículo.":"No se pudo guardar el VIN."}catch(e){$("#vinstatus").textContent="VIN no válido o no se pudo guardar."}}
-async function researchCategory(category){const base=selected||{};if(!base.id){$("#status").textContent="Selecciona primero un vehículo.";return}await runResearch({vehicle_id:base.id,make:base.make,model:base.model,category})}
+async function researchCategory(category){
+ const base=selected||{};
+ if(!base.id){$("#status").textContent="Selecciona primero un vehículo.";return}
+ try{
+   const rows=await api("/api/technical/"+encodeURIComponent(base.id)+"?category="+encodeURIComponent(category));
+   if(rows.length){renderTechnicalRows(category,rows);return}
+ }catch(e){}
+ await runResearch({vehicle_id:base.id,make:base.make,model:base.model,category})
+}
+function renderTechnicalRows(category,rows){
+ $("#webresults").classList.remove("hidden");
+ $("#webresults").innerHTML='<div class="eyebrow">DATOS TÉCNICOS CONTRASTADOS</div><h3>'+esc(category.replace(/\\b\\w/g,c=>c.toUpperCase()))+'</h3><p class="small">Solo se muestran datos asociados a una variante y fuente concreta. No se mezclan versiones.</p>'+
+ rows.map(x=>'<div class="tech-row"><div><b>'+esc(x.field)+'</b><span>'+esc(x.value)+(x.unit?' '+esc(x.unit):'')+'</span></div><div class="small"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url)+'">'+esc(x.source_title)+'</a><br>'+esc(x.source_class)+' · '+esc(x.confidence)+' · '+esc(x.applicable_from||'')+'–'+esc(x.applicable_to||'')+'</div></div>').join("")}
+
 async function runResearch(payload){$("#webresults").classList.remove("hidden");$("#webresults").innerHTML="<b>Buscando evidencia pública…</b>";try{const r=await api("/api/research",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});if(!r.ok)throw new Error(r.error);const title=payload.category?payload.category.replace(/\b\w/g,c=>c.toUpperCase()):"Evidencia técnica";$("#webresults").innerHTML='<div class="eyebrow">EVIDENCIA WEB</div><h3>'+esc(r.query)+'</h3><p class="small">Módulo: '+esc(title)+' · Los resultados son evidencia para contraste, no sustituyen documentación OEM o datos licenciados.</p>'+r.results.map(x=>'<div class="evidence"><a class="source" target="_blank" rel="noopener" href="'+esc(x.url)+'">'+esc(x.title||x.url)+'</a><div class="small">'+esc(x.source_class)+' · '+esc(x.confidence)+'</div><p class="small">'+esc(x.snippet||"Sin extracto")+"</p></div>").join("")||'<p>No se encontraron resultados públicos.</p>'}catch(e){$("#webresults").innerHTML="<b>No se pudo consultar Internet.</b><p>"+esc(e.message)+"</p>"}}
 async function research(qOverride){const q=(qOverride||$("#q").value).trim();if(!selected&&!q)return;const base=selected||{};await runResearch({vehicle_id:base.id||null,make:base.make||q,model:base.model||"",category:"technical specifications"})}
 $("#find").onclick=find;$("#internet").onclick=research;$("#q").addEventListener("keydown",e=>{if(e.key==="Enter")find()});$("#refresh").onclick=async()=>{if(!confirm("¿Actualizar la base abierta?"))return;$("#status").textContent="Actualizando…";try{const r=await api("/api/database/refresh",{method:"POST"});$("#status").textContent=r.ok?"Base actualizada: "+Number(r.count).toLocaleString("es-ES")+" vehículos":"No se pudo actualizar: "+r.error;await status();await find()}catch(e){$("#status").textContent="Error: "+e.message}};status();
