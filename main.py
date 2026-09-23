@@ -22,14 +22,16 @@ app = FastAPI(title="AutoTech Europe", version="1.4.0")
 app.mount("/static", StaticFiles(directory=APP_DIR), name="static")
 
 def db():
-    c = sqlite3.connect(DB, timeout=1.0)
-    c.execute("PRAGMA busy_timeout=1000")
-    c.execute("PRAGMA journal_mode=WAL")
+    # No cambiamos journal_mode en cada petición: hacerlo durante una
+    # importación puede bloquear las consultas de estado de la interfaz.
+    c = sqlite3.connect(DB, timeout=5.0)
+    c.execute("PRAGMA busy_timeout=5000")
     c.row_factory = sqlite3.Row
     return c
 
 def init_db():
     c = db()
+    c.execute("PRAGMA journal_mode=WAL")
     c.executescript("""
     CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
     CREATE TABLE IF NOT EXISTS vehicles(
