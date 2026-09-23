@@ -154,6 +154,7 @@ def refresh_database(force=True):
                  None,json.dumps(raw,ensure_ascii=False))
             )
         c.commit(); c.close()
+        ensure_seed_vehicle()
         meta_set("dataset_version",DATASET_VERSION)
         meta_set("dataset_updated_at",datetime.now(timezone.utc).isoformat())
         return {"ok":True,"updated":True,"version":DATASET_VERSION,"count":len(model_rows)}
@@ -168,6 +169,21 @@ def refresh_database(force=True):
             if tmp.exists(): tmp.unlink()
         except Exception:
             pass
+
+def ensure_seed_vehicle():
+    # Entrada de prueba explícita y trazable para el perfil técnico BMW G20 320d.
+    # Se mantiene separada del catálogo VehiclesDB para no fingir que es un registro OEM completo.
+    c=db()
+    row=c.execute("SELECT 1 FROM vehicles WHERE id=?",("car/bmw/3-series-320d",)).fetchone()
+    if not row:
+        raw={"id":"car/bmw/3-series-320d","name":"3 Series 320d","body_types":["sedan"],"years":"2018–2020","source":"BMW public press documentation"}
+        c.execute("""INSERT OR REPLACE INTO vehicles
+          (id,make,model,kind,body_types,years,availability,popularity,sources,raw_json)
+          VALUES(?,?,?,?,?,?,?,?,?,?)""",
+          ("car/bmw/3-series-320d","BMW","3 Series 320d","car","Sedan","2018–2020","[\"ES\",\"DE\",\"GB\"]","verified-seed",
+           "BMW public press documentation",json.dumps(raw,ensure_ascii=False)))
+        c.commit()
+    c.close()
 
 def seed_verified_bmw_g20_320d():
     # Perfil limitado deliberadamente a datos que hemos podido contrastar en
@@ -303,6 +319,7 @@ def search_web(query,limit=8):
 def startup():
     init_db()
     seed_verified_bmw_g20_320d()
+    ensure_seed_vehicle()
     # Si existe una base antigua o incompleta, se fuerza una sincronización.
     # VehiclesDB 2026.09.1 contiene miles de modelos; 929 registros indican
     # una base local heredada, no el catálogo completo.
