@@ -35,8 +35,21 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      - name: Comprobar Python y código
+        run: |
+          python --version
+          python -m py_compile main.py
+
       - name: Construir AutoTech Europe
-        run: python -m PyInstaller --noconfirm AutoTech_Europe_Windows.spec
+        run: python -m PyInstaller --clean --noconfirm --log-level=DEBUG AutoTech_Europe_Windows.spec
+
+      - name: Comprobar ejecutable
+        shell: powershell
+        run: |
+          if (-not (Test-Path "dist\AutoTech_Europe.exe")) {
+            Write-Error "PyInstaller terminó sin generar dist\AutoTech_Europe.exe"
+          }
+          Get-Item "dist\AutoTech_Europe.exe" | Format-List FullName,Length
 
       - name: Instalar Inno Setup
         shell: powershell
