@@ -22,7 +22,9 @@ app = FastAPI(title="AutoTech Europe", version="1.4.0")
 app.mount("/static", StaticFiles(directory=APP_DIR), name="static")
 
 def db():
-    c = sqlite3.connect(DB)
+    c = sqlite3.connect(DB, timeout=1.0)
+    c.execute("PRAGMA busy_timeout=1000")
+    c.execute("PRAGMA journal_mode=WAL")
     c.row_factory = sqlite3.Row
     return c
 
@@ -221,7 +223,7 @@ def search_web(query,limit=8):
     # automatizados. Simulamos una navegación real: POST del formulario,
     # Referer y Sec-Fetch-Mode/Dest.
     url="https://html.duckduckgo.com/html/"
-    payload=urllib.parse.urlencode({"q":query}).encode("utf-8")
+    payload=urllib.parse.urlencode({"q":query,"kl":"es-es"}).encode("utf-8")
     headers={
         "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
         "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -320,14 +322,20 @@ def startup():
     init_db()
     seed_verified_bmw_g20_320d()
     ensure_seed_vehicle()
+    meta_set("dataset_sync","comprobando")
     # Si existe una base antigua o incompleta, se fuerza una sincronización.
     # VehiclesDB 2026.09.1 contiene miles de modelos; 929 registros indican
     # una base local heredada, no el catálogo completo.
     def sync():
-        if meta_get("dataset_version") != DATASET_VERSION or count_vehicles() < 5000:
-            refresh_database(True)
-        else:
-            refresh_database(False)
+        try:
+            meta_set("dataset_sync","descargando" if meta_get("dataset_version") != DATASET_VERSION or count_vehicles() < 5000 else "listo")
+            result = refresh_database(True) if meta_get("dataset_version") != DATASET_VERSION or count_vehicles() < 5000 else refresh_database(False)
+            meta_set("dataset_sync","listo" if result.get("ok") else "error")
+            if not result.get("ok"):
+                meta_set("dataset_error",result.get("error","Error desconocido"))
+        except Exception as exc:
+            meta_set("dataset_sync","error")
+            meta_set("dataset_error",str(exc))
     threading.Thread(target=sync,daemon=True).start()
 
 @app.get("/")
@@ -335,7 +343,7 @@ def home(): return FileResponse(APP_DIR/"index.html")
 
 @app.get("/api/status")
 def status():
-    return {"version":app.version,"dataset":meta_get("dataset_version") or "Sin descargar","count":count_vehicles(),"updated_at":meta_get("dataset_updated_at"),"source":"VehiclesDB","license":"CC BY 4.0","warning":"La base local parece incompleta" if count_vehicles() < 5000 else None}
+    return {"version":app.version,"dataset":meta_get("dataset_version") or "Sin descargar","count":count_vehicles(),"updated_at":meta_get("dataset_updated_at"),"sync":meta_get("dataset_sync") or "desconocido","error":meta_get("dataset_error"),"source":"VehiclesDB","license":"CC BY 4.0","warning":"La base local parece incompleta" if count_vehicles() < 5000 else None}
 
 @app.post("/api/database/refresh")
 def refresh(): return refresh_database(True)
