@@ -18,6 +18,10 @@ DB = DATA_DIR / "autotech.db"
 VEHICLES_SQLITE_URL = "https://cdn.jsdelivr.net/gh/vehiclesdb/vehiclesdb@v2026.09.1/dist/catalog.sqlite"
 DATASET_VERSION = "VehiclesDB 2026.09.1"
 
+# Estado de sincronización en memoria: la pantalla inicial no depende de
+# una lectura de SQLite mientras otro hilo está importando el catálogo.
+SYNC_STATE = {"sync":"iniciando","count":0,"error":None,"dataset":None,"updated_at":None}
+
 app = FastAPI(title="AutoTech Europe", version="1.4.0")
 app.mount("/static", StaticFiles(directory=APP_DIR), name="static")
 
@@ -159,10 +163,13 @@ def refresh_database(force=True):
             )
         c.commit(); c.close()
         ensure_seed_vehicle()
+        updated_at=datetime.now(timezone.utc).isoformat()
         meta_set("dataset_version",DATASET_VERSION)
-        meta_set("dataset_updated_at",datetime.now(timezone.utc).isoformat())
+        meta_set("dataset_updated_at",updated_at)
+        SYNC_STATE.update({"sync":"listo","count":len(model_rows)+1,"error":None,"dataset":DATASET_VERSION,"updated_at":updated_at})
         return {"ok":True,"updated":True,"version":DATASET_VERSION,"count":len(model_rows)}
     except Exception as exc:
+        SYNC_STATE.update({"sync":"error","error":str(exc)})
         try:
             if tmp.exists(): tmp.unlink()
         except Exception:
@@ -324,16 +331,21 @@ def startup():
     init_db()
     seed_verified_bmw_g20_320d()
     ensure_seed_vehicle()
+    SYNC_STATE.update({"sync":"comprobando","count":count_vehicles(),"dataset":meta_get("dataset_version")})
     meta_set("dataset_sync","comprobando")
     # Si existe una base antigua o incompleta, se fuerza una sincronización.
     # VehiclesDB 2026.09.1 contiene miles de modelos; 929 registros indican
     # una base local heredada, no el catálogo completo.
     def sync():
         try:
-            meta_set("dataset_sync","descargando" if meta_get("dataset_version") != DATASET_VERSION or count_vehicles() < 5000 else "listo")
-            result = refresh_database(True) if meta_get("dataset_version") != DATASET_VERSION or count_vehicles() < 5000 else refresh_database(False)
-            meta_set("dataset_sync","listo" if result.get("ok") else "error")
+            current_count=SYNC_STATE.get("count",0)
+            needs_refresh=meta_get("dataset_version") != DATASET_VERSION or current_count < 5000
+            SYNC_STATE.update({"sync":"descargando" if needs_refresh else "listo","error":None})
+            meta_set("dataset_sync",SYNC_STATE["sync"])
+            result = refresh_database(True) if needs_refresh else refresh_database(False)
             if not result.get("ok"):
+                SYNC_STATE.update({"sync":"error","error":result.get("error","Error desconocido")})
+                meta_set("dataset_sync","error")
                 meta_set("dataset_error",result.get("error","Error desconocido"))
         except Exception as exc:
             meta_set("dataset_sync","error")
@@ -345,7 +357,10 @@ def home(): return FileResponse(APP_DIR/"index.html")
 
 @app.get("/api/status")
 def status():
-    return {"version":app.version,"dataset":meta_get("dataset_version") or "Sin descargar","count":count_vehicles(),"updated_at":meta_get("dataset_updated_at"),"sync":meta_get("dataset_sync") or "desconocido","error":meta_get("dataset_error"),"source":"VehiclesDB","license":"CC BY 4.0","warning":"La base local parece incompleta" if count_vehicles() < 5000 else None}
+    # Durante la importación no consultamos SQLite: este endpoint debe
+    # responder aunque exista una transacción de escritura larga.
+    s=SYNC_STATE
+    return {"version":app.version,"dataset":s.get("dataset") or "Sin descargar","count":s.get("count",0),"updated_at":s.get("updated_at"),"sync":s.get("sync") or "desconocido","error":s.get("error"),"source":"VehiclesDB","license":"CC BY 4.0","warning":"La base local parece incompleta" if s.get("count",0) < 5000 else None}
 
 @app.post("/api/database/refresh")
 def refresh(): return refresh_database(True)
