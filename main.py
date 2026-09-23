@@ -162,6 +162,30 @@ def refresh_database(force=True):
         except Exception:
             pass
 
+def seed_verified_bmw_g20_320d():
+    # Perfil limitado deliberadamente a datos que hemos podido contrastar en
+    # documentación pública de BMW. No se rellenan mantenimiento, pares,
+    # distribución o diagnosis sin una fuente específica de variante.
+    c=db()
+    exists=c.execute("SELECT 1 FROM technical_records WHERE vehicle_id LIKE ? LIMIT 1",("car/bmw/%320d%",)).fetchone()
+    if exists:
+        c.close(); return
+    now=datetime.now(timezone.utc).isoformat()
+    rows=[
+      ("technical specifications","Cilindrada","1995","cm³","BMW 3 Series Sedan G20 320d specifications","https://www.press.bmwgroup.com/spain/article/attachment/T0285540ES/415954","FABRICANTE / OEM","CONTRASTADO","2018","2020","Ficha BMW 320d de lanzamiento G20."),
+      ("technical specifications","Potencia","190","CV","BMW 3 Series Sedan G20 320d specifications","https://www.press.bmwgroup.com/spain/article/attachment/T0285540ES/415954","FABRICANTE / OEM","CONTRASTADO","2018","2020","140 kW / 190 CV a 4.000 rpm."),
+      ("technical specifications","Par máximo","400","Nm","BMW 3 Series Sedan G20 320d specifications","https://www.press.bmwgroup.com/spain/article/attachment/T0285540ES/415954","FABRICANTE / OEM","CONTRASTADO","2018","2020","400 Nm; la documentación BMW indica el rango de régimen."),
+      ("technical specifications","Tipo de motor","B47D20O1","", "BMW 3 Series model specifications","https://www.press.bmwgroup.com/united-kingdom/article/attachment/T0285581EN_GB/426446","FABRICANTE / OEM","CONTRASTADO","2019","2020","Código indicado para 320d G20 en esta tabla de variantes."),
+      ("lubricants","Capacidad de aceite motor","5.5","L","BMW 3 Series Sedan G20 320d specifications","https://www.press.bmwgroup.com/spain/article/attachment/T0285540ES/415954","FABRICANTE / OEM","CONTRASTADO","2018","2020","Cantidad publicada por BMW para esta ficha; no equivale por sí sola a especificación de aceite."),
+      ("technical specifications","Combustible","Diésel","","BMW 3 Series Sedan G20 320d specifications","https://www.press.bmwgroup.com/spain/article/attachment/T0285540ES/415954","FABRICANTE / OEM","CONTRASTADO","2018","2020","Aplicable a la ficha consultada.")
+    ]
+    for category,field,value,unit,title,url,source_class,confidence,af,at,notes in rows:
+        c.execute("""INSERT INTO technical_records
+          (vehicle_id,category,field,value,unit,source_title,source_url,source_class,confidence,applicable_from,applicable_to,notes,created_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+          ("car/bmw/3-series-320d",category,field,value,unit,title,url,source_class,confidence,af,at,notes,now))
+    c.commit(); c.close()
+
 def classify_source(url):
     domain=urllib.parse.urlparse(url).netloc.lower()
     if any(x in domain for x in [".gov","europa.eu","eur-lex.europa.eu"]): return "OFICIAL / ADMINISTRACIÓN"
@@ -381,6 +405,16 @@ def research(payload:dict):
         item["source_class"]=classify_source(item["url"]); item["confidence"]="PENDIENTE DE CONTRASTE"
     c.commit(); c.close()
     return {"ok":True,"query":query,"results":results}
+
+@app.get("/api/technical/{vehicle_id:path}")
+def technical(vehicle_id:str, category:str=Query("")):
+    c=db()
+    if category:
+        rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(vehicle_id,category)).fetchall()
+    else:
+        rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(vehicle_id,)).fetchall()
+    c.close()
+    return [dict(r) for r in rows]
 
 @app.get("/api/evidence")
 def evidence(limit:int=Query(50,ge=1,le=200)):
