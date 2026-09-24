@@ -1,7 +1,62 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AutoTech Europe</title><link rel="stylesheet" href="/static/styles.css"></head>
-<body><header><div class="brand"><span class="logo">AT</span><strong>AutoTech</strong> <em>Europe</em><small>MZ</small></div><div class="tag">Identificación · fuentes · información técnica</div></header>
-<main><section class="hero"><div><div class="eyebrow">AUTOTECH EUROPE · MZ</div><h1>Información técnica de vehículos con trazabilidad.</h1><p>Identifica el vehículo y trabaja por módulos técnicos. La aplicación separa la identidad de los datos técnicos y muestra la procedencia de la evidencia antes de tratarla como dato de trabajo.</p><div class="pills"><span>Base VehiclesDB</span><span>Fuentes trazables</span><span>Sin datos inventados</span><span>Diseño modular</span></div></div>
-<div class="card"><label>Buscar vehículo</label><input id="q" placeholder="Ej.: BMW 320d, Golf, Peugeot 308, código motor"><div class="actions"><button id="find">Buscar</button><button id="internet" class="secondary">Buscar evidencia web</button></div><p id="status"></p><small id="dbinfo">Cargando base…</small></div></section>
-<section class="toolbar"><h2>Resultados</h2><button id="refresh" class="secondary">Actualizar base abierta</button></section><section id="results" class="results"></section><section id="detail" class="card hidden"></section><section id="webresults" class="card hidden"></section>
-<footer>Vehicle data by VehiclesDB · CC BY 4.0 · © 2026 MZ · AutoTech Europe. Todos los derechos reservados.</footer></main><script src="/static/app.js?v=20260924"></script></body></html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AutoTech Europe</title><link rel="stylesheet" href="/static/styles.css?v=20260924"></head>
+<body>
+<header><div class="brand"><span class="logo">AT</span><strong>AutoTech</strong> <em>Europe</em><small>MZ</small></div><div class="tag">Identificación · fuentes · información técnica</div></header>
+<main>
+<section class="hero">
+  <div>
+    <div class="eyebrow">AUTOTECH EUROPE · MZ</div>
+    <h1>Información técnica de vehículos con trazabilidad.</h1>
+    <p>Identifica el vehículo por VIN, marca/modelo o código de motor y trabaja después sobre la ficha exacta. La aplicación separa identidad, datos técnicos y evidencia de sus fuentes.</p>
+    <div class="pills"><span>VIN / bastidor</span><span>Marca · modelo · versión</span><span>Código de motor</span><span>Fuentes trazables</span><span>Sin datos inventados</span></div>
+  </div>
+  <div class="card identification-card">
+    <div class="eyebrow">IDENTIFICACIÓN DEL VEHÍCULO</div>
+    <h2>Elige cómo localizarlo</h2>
+    <div class="id-tabs">
+      <button class="id-tab active" data-idtab="vin">VIN / bastidor</button>
+      <button class="id-tab" data-idtab="catalog">Marca y modelo</button>
+      <button class="id-tab" data-idtab="engine">Código motor</button>
+      <button class="id-tab" data-idtab="free">Búsqueda libre</button>
+    </div>
+    <section class="id-panel" data-panel="vin">
+      <label for="vinHome">VIN / bastidor (17 caracteres)</label>
+      <input id="vinHome" maxlength="17" autocomplete="off" placeholder="Ej.: WBAxxxxxxxxxxxxxx">
+      <div class="actions"><button id="decodeVin">Decodificar VIN</button><button id="saveHomeVin" class="secondary">Guardar VIN</button></div>
+      <p class="small">La decodificación pública puede no identificar una variante europea exacta. Los datos OEM siempre tendrán prioridad cuando estén disponibles.</p>
+    </section>
+    <section class="id-panel hidden" data-panel="catalog">
+      <div class="form-grid">
+        <div><label for="makeSelect">Marca</label><select id="makeSelect"><option value="">Cargando marcas…</option></select></div>
+        <div><label for="modelSelect">Modelo</label><select id="modelSelect" disabled><option value="">Selecciona una marca</option></select></div>
+      </div>
+      <div class="form-grid">
+        <div><label for="modelFilter">Filtrar modelo</label><input id="modelFilter" placeholder="Ej.: Serie 3, Golf, 308"></div>
+        <div><label for="catalogEngine">Código motor (opcional)</label><input id="catalogEngine" placeholder="Ej.: B47D20O1"></div>
+      </div>
+      <div class="actions"><button id="searchCatalog">Buscar vehículo</button></div>
+    </section>
+    <section class="id-panel hidden" data-panel="engine">
+      <label for="engineHome">Código o familia de motor</label>
+      <input id="engineHome" placeholder="Ej.: B47D20O1, N47, EA888">
+      <div class="actions"><button id="searchEngine">Buscar código motor</button></div>
+      <p class="small">Primero se consulta la información local disponible. Si no existe una coincidencia, AutoTech puede contrastar fuentes públicas sin convertirlas automáticamente en datos confirmados.</p>
+    </section>
+    <section class="id-panel hidden" data-panel="free">
+      <label for="q">Marca, modelo, motor o referencia</label>
+      <input id="q" placeholder="Ej.: BMW 320d, Golf 2.0 TDI, B47D20O1">
+      <div class="actions"><button id="find">Buscar</button><button id="internet" class="secondary">Buscar evidencia web</button></div>
+    </section>
+    <p id="status"></p><small id="dbinfo">Cargando base…</small>
+  </div>
+</section>
+<section id="vinDecode" class="card hidden"></section>
+<section class="toolbar"><h2>Resultados</h2><button id="refresh" class="secondary">Actualizar base abierta</button></section>
+<section id="results" class="results"></section>
+<section id="detail" class="card hidden"></section>
+<section id="webresults" class="card hidden"></section>
+<footer>Vehicle data by VehiclesDB · CC BY 4.0 · © 2026 MZ · AutoTech Europe. Todos los derechos reservados.</footer>
+</main>
+<script src="/static/app.js?v=20260924-id1"></script>
+</body></html>
