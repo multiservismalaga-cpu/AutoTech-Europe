@@ -194,7 +194,7 @@ function renderVinDecode(data) {
   const rows = (data.results || []).map(x =>
     '<div class="vin-row"><b>' + esc(x.field) + '</b><span>' + esc(x.value) + '</span></div>'
   ).join("");
-  let hxHtml = hx ? "<section class=\"vin-crosscheck\"><div class=\"eyebrow\">CRUCE VIN</div><h3>" + esc(hx[0]) + " " + esc(hx[1]) + " " + esc(hx[2]) + "</h3>" : "";
+  let hxHtml = hx ? "<section class=\"vin-crosscheck\"><div class=\"eyebrow\">CRUCE VIN</div><h3>" + esc(hx[0]) + " " + esc(hx[1]) + " " + esc(hx[2]) + "</h3><p>" + esc(hx[3]) + " | " + esc(hx[4]) + " | " + esc(hx[5]) + " | " + esc(hx[6]) + " cc</p><p>" + esc(hx[8]) + " | " + esc(hx[9]) + " | " + esc(hx[10]) + "</p></section>" : "";
   box.innerHTML =
     '<div class="detail-nav"><div class="nav-crumb">Identificación VIN</div><button id="closeVin" class="secondary">Cerrar</button></div>' +
     '<div class="eyebrow">IDENTIFICACIÓN POR VIN</div><h3>VIN ' + esc(data.vin) + '</h3>' + hxHtml +
