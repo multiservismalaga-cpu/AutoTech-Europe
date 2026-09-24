@@ -51,6 +51,7 @@ function render(list) {
   if (!box) return;
   if (!list.length) {
     if (hx) hxHtml += "<p class=\"small\">Year: " + esc(hx[3]) + " | Engine: " + esc(hx[4]) + " | " + esc(hx[5]) + " | " + esc(hx[6]) + " cc</p>";
+  if (hx) hxHtml += "<p class=\"small\">" + esc(hx[8]) + " | " + esc(hx[9]) + " | " + esc(hx[10]) + "</p></section>";
   box.innerHTML = '<div class="card"><b>No hay coincidencias.</b><p>Prueba otra búsqueda o utiliza evidencia pública.</p></div>';
     return;
   }
