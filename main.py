@@ -365,6 +365,104 @@ def status():
 @app.post("/api/database/refresh")
 def refresh(): return refresh_database(True)
 
+@app.get("/api/makes")
+def makes():
+    c=db()
+    rows=c.execute("SELECT make,COUNT(*) AS count FROM vehicles GROUP BY make ORDER BY make COLLATE NOCASE").fetchall()
+    c.close()
+    return [{"make":r["make"],"count":r["count"]} for r in rows]
+
+@app.get("/api/models")
+def models(make:str=Query("",max_length=100), q:str=Query("",max_length=120), limit:int=Query(200,ge=1,le=500)):
+    c=db()
+    params=[]
+    where=[]
+    if make.strip():
+        where.append("make=?")
+        params.append(make.strip())
+    if q.strip():
+        where.append("(model LIKE ? OR raw_json LIKE ?)")
+        needle="%"+q.strip()+"%"
+        params.extend([needle,needle])
+    sql="SELECT id,make,model,kind,years,body_types FROM vehicles"
+    if where:
+        sql+=" WHERE "+" AND ".join(where)
+    sql+=" ORDER BY make COLLATE NOCASE, model COLLATE NOCASE LIMIT ?"
+    params.append(limit)
+    rows=c.execute(sql,params).fetchall()
+    c.close()
+    return [dict(r) for r in rows]
+
+@app.get("/api/engine-search")
+def engine_search(q:str=Query(...,min_length=2,max_length=80), limit:int=Query(30,ge=1,le=100)):
+    needle=normalize(q)
+    c=db()
+    rows=c.execute(
+        "SELECT id,make,model,kind,years,body_types,raw_json FROM vehicles"
+    ).fetchall()
+    tech=c.execute(
+        "SELECT DISTINCT vehicle_id FROM technical_records WHERE lower(field) LIKE '%motor%' AND lower(value) LIKE ?",
+        ("%"+q.lower()+"%",)
+    ).fetchall()
+    c.close()
+    tech_ids={r["vehicle_id"] for r in tech}
+    ranked=[]
+    for r in rows:
+        hay=normalize(" ".join([r["make"] or "",r["model"] or "",r["raw_json"] or ""]))
+        if needle in hay or r["id"] in tech_ids:
+            score=100 if needle in normalize(r["model"] or "") else 40
+            if r["id"] in tech_ids: score+=80
+            ranked.append((score,dict(r)))
+    ranked.sort(key=lambda x:(-x[0],normalize(x[1]["make"]),normalize(x[1]["model"])))
+    return [x[1] for x in ranked[:limit]]
+
+def decode_vin_public(vin):
+    url="https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/"+urllib.parse.quote(vin,safe="")+"?format=json"
+    req=urllib.request.Request(url,headers={"User-Agent":"AutoTech-Europe/1.5","Accept":"application/json"})
+    with urllib.request.urlopen(req,timeout=20) as r:
+        payload=json.loads(r.read().decode("utf-8","ignore"))
+    results=payload.get("Results") or []
+    if not results:
+        raise ValueError("El decodificador público no devolvió datos")
+    row=results[0]
+    fields={
+        "Make":"Marca","Model":"Modelo","ModelYear":"Año modelo","Series":"Serie",
+        "Trim":"Acabado","VehicleType":"Tipo de vehículo","BodyClass":"Carrocería",
+        "EngineModel":"Código/modelo de motor","EngineCylinders":"Cilindros",
+        "DisplacementL":"Cilindrada (L)","FuelTypePrimary":"Combustible",
+        "TransmissionStyle":"Transmisión","DriveType":"Tracción",
+        "PlantCountry":"País de fabricación","PlantCity":"Planta/ciudad",
+        "Manufacturer":"Fabricante"
+    }
+    data=[]
+    for key,label in fields.items():
+        value=str(row.get(key) or "").strip()
+        if value and value.upper() not in {"NOT APPLICABLE","NOT REPORTED","UNKNOWN","0"}:
+            data.append({"field":label,"value":value})
+    return {
+        "ok":True,
+        "vin":vin,
+        "source":"NHTSA vPIC",
+        "source_url":"https://vpic.nhtsa.dot.gov/",
+        "confidence":"DECODIFICACIÓN PÚBLICA · NO OEM",
+        "wmi":vin[:3],
+        "vds":vin[3:9],
+        "vis":vin[9:17],
+        "year_code":vin[9],
+        "results":data,
+        "raw_count":len(results)
+    }
+
+@app.get("/api/vin/decode/{vin}")
+def decode_vin(vin:str):
+    raw=vin.strip().upper().replace(" ","").replace("-","")
+    if not re.fullmatch(r"[A-HJ-NPR-Z0-9]{17}",raw):
+        return JSONResponse({"ok":False,"error":"El VIN debe tener 17 caracteres válidos (sin I, O ni Q)."},status_code=400)
+    try:
+        return decode_vin_public(raw)
+    except Exception as exc:
+        return {"ok":False,"vin":raw,"source":"NHTSA vPIC","source_url":"https://vpic.nhtsa.dot.gov/","error":f"No se pudo decodificar públicamente este VIN: {exc}","wmi":raw[:3],"vds":raw[3:9],"vis":raw[9:17],"year_code":raw[9],"results":[]}
+
 @app.get("/api/vehicles")
 def vehicles(q:str=Query("",max_length=120),limit:int=Query(30,ge=1,le=100)):
     c=db()
