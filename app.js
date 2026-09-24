@@ -190,11 +190,19 @@ function renderVinDecode(data) {
     box.scrollIntoView({behavior:"smooth"});
     return;
   }
-  const hx = decodeHyundaiLocal(data.vin);
+  const hx = data.crosscheck || decodeHyundaiLocal(data.vin);
   const rows = (data.results || []).map(x =>
     '<div class="vin-row"><b>' + esc(x.field) + '</b><span>' + esc(x.value) + '</span></div>'
   ).join("");
-  let hxHtml = hx ? "<section class=\"vin-crosscheck\"><div class=\"eyebrow\">CRUCE VIN</div><h3>" + esc(hx[0]) + " " + esc(hx[1]) + " " + esc(hx[2]) + "</h3><p>" + esc(hx[3]) + " | " + esc(hx[4]) + " | " + esc(hx[5]) + " | " + esc(hx[6]) + " cc</p><p>" + esc(hx[8]) + " | " + esc(hx[9]) + " | " + esc(hx[10]) + "</p></section>" : "";
+  let hxHtml = "";
+  if (hx && hx.matched) {
+    hxHtml = "<section class=\"vin-crosscheck\"><div class=\"eyebrow\">CRUCE VIN</div><h3>" +
+      esc(hx.manufacturer) + " · " + esc(hx.model) + " · " + esc(hx.variant) + "</h3>" +
+      "<p>" + esc(hx.model_year) + " | " + esc(hx.engine) + " | " + esc(hx.engine_code) + " | " + esc(hx.displacement_cc) + " cc</p>" +
+      "<p>" + esc(hx.transmission) + " | " + esc(hx.drive) + " | " + esc(hx.plant) + "</p>" +
+      "<p class=\"small\">Confianza: " + esc(hx.confidence) + " · " + esc(hx.limitation) + "</p>" +
+      "<button id=\"openTechFromVin\" class=\"secondary\">Ver ficha técnica contrastada</button></section>";
+  }
   box.innerHTML =
     '<div class="detail-nav"><div class="nav-crumb">Identificación VIN</div><button id="closeVin" class="secondary">Cerrar</button></div>' +
     '<div class="eyebrow">IDENTIFICACIÓN POR VIN</div><h3>VIN ' + esc(data.vin) + '</h3>' + hxHtml +
@@ -205,6 +213,22 @@ function renderVinDecode(data) {
     esc(data.year_code) + '</b></span></div>' +
     '<div class="vin-grid">' + (rows || '<p>No hay campos públicos útiles para este VIN.</p>') + '</div>';
   $("#closeVin").onclick = () => box.classList.add("hidden");
+  if (hx && hx.matched) {
+    const techButton = $("#openTechFromVin");
+    if (techButton) {
+      techButton.onclick = async () => {
+        showStatus("Cargando ficha técnica contrastada…");
+        try {
+          const tech = await api("/api/technical/car%2Fhyundai%2Fkona-sx2-hev-2025");
+          const rows = tech.map(x => "<div class=\"vin-row\"><b>" + esc(x.category + " · " + x.field) + "</b><span>" + esc((x.value || "") + (x.unit ? " " + x.unit : "")) + "</span></div>").join("");
+          box.innerHTML += "<section class=\"card\"><div class=\"eyebrow\">FICHA TÉCNICA CONTRASTADA</div><div class=\"vin-grid\">" + rows + "</div><p class=\"small\">Cada dato incluye fuente OEM y estado de contraste en la base técnica.</p></section>";
+          showStatus(tech.length + " datos técnicos contrastados cargados");
+        } catch (e) {
+          showStatus("No se pudo cargar la ficha técnica: " + e.message);
+        }
+      };
+    }
+  }
   box.scrollIntoView({behavior:"smooth"});
   const make = (data.results || []).find(x => x.field === "Marca")?.value || "";
   const model = (data.results || []).find(x => x.field === "Modelo")?.value || "";
