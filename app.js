@@ -197,7 +197,7 @@ function renderVinDecode(data) {
   const hxHtml = hx ? "<section class=\"vin-crosscheck\">VIN cruzado</section>" : "";
   box.innerHTML =
     '<div class="detail-nav"><div class="nav-crumb">Identificación VIN</div><button id="closeVin" class="secondary">Cerrar</button></div>' +
-    '<div class="eyebrow">DECODIFICACIÓN PÚBLICA</div><h3>VIN ' + esc(data.vin) + '</h3>' +
+    '<div class="eyebrow">IDENTIFICACIÓN POR VIN</div><h3>VIN ' + esc(data.vin) + '</h3>' + hxHtml +
     '<p class="small">Fuente: ' + esc(data.source) + ' · ' + esc(data.confidence) +
     '. Esta información sirve para orientar la identificación y no sustituye una fuente OEM o una base VIN europea licenciada.</p>' +
     '<div class="vin-meta"><span>WMI: <b>' + esc(data.wmi) + '</b></span><span>VDS: <b>' + esc(data.vds) +
