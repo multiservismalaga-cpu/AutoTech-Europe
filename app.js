@@ -1,5 +1,6 @@
 const $ = (s) => document.querySelector(s);
 // VIN crosscheck ready
+const HYUNDAI_VDS_HA811 = "H" + "A811";
 let selected = null;
 let makesCache = [];
 
