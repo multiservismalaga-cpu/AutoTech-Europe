@@ -1,5 +1,6 @@
 const $ = (s) => document.querySelector(s);
 let selected = null;
+let makesCache = [];
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (m) => ({
@@ -33,11 +34,15 @@ async function status() {
   }
 }
 
+function showStatus(text) {
+  if ($("#status")) $("#status").textContent = text;
+}
+
 function render(list) {
   const box = $("#results");
   if (!box) return;
   if (!list.length) {
-    box.innerHTML = '<div class="card"><b>No hay coincidencias.</b><p>Prueba otra búsqueda. También puedes buscar evidencia pública.</p></div>';
+    box.innerHTML = '<div class="card"><b>No hay coincidencias.</b><p>Prueba otra búsqueda o utiliza evidencia pública.</p></div>';
     return;
   }
   box.innerHTML = list.map((v) =>
@@ -49,27 +54,195 @@ function render(list) {
   document.querySelectorAll("[data-id]").forEach((b) => {
     b.onclick = () => openVehicle(b.dataset.id);
   });
+  $("#results").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
 async function find() {
   const q = $("#q").value.trim();
   if (!q) {
-    $("#status").textContent = "Escribe una marca, modelo, código de motor o VIN.";
+    showStatus("Escribe una marca, modelo, código de motor o referencia.");
     return;
   }
-  $("#status").textContent = "Buscando en la base local…";
+  showStatus("Buscando en la base local…");
   try {
     const r = await api("/api/vehicles?q=" + encodeURIComponent(q));
     render(r);
     if (r.length) {
-      $("#status").textContent = r.length + " coincidencias en la base local";
+      showStatus(r.length + " coincidencias en la base local");
       return;
     }
-    $("#status").textContent = "Sin coincidencia exacta en la base; contrastando fuentes públicas…";
+    showStatus("Sin coincidencia local; contrastando fuentes públicas…");
     await research(q);
-    $("#status").textContent = "Sin coincidencia exacta en la base. Se muestran fuentes públicas para contrastar.";
+    showStatus("Sin coincidencia exacta en la base. Se muestran fuentes públicas para contrastar.");
   } catch (e) {
-    $("#status").textContent = "Error: " + e.message;
+    showStatus("Error: " + e.message);
+  }
+}
+
+async function loadMakes() {
+  const select = $("#makeSelect");
+  if (!select) return;
+  try {
+    const data = await api("/api/makes");
+    makesCache = data;
+    select.innerHTML = '<option value="">Selecciona marca</option>' +
+      data.map(x => '<option value="' + esc(x.make) + '">' + esc(x.make) + ' (' + Number(x.count).toLocaleString("es-ES") + ')</option>').join("");
+  } catch (e) {
+    select.innerHTML = '<option value="">No se pudieron cargar las marcas</option>';
+  }
+}
+
+async function loadModels(make, q="") {
+  const select = $("#modelSelect");
+  if (!select) return;
+  select.disabled = true;
+  select.innerHTML = '<option value="">Cargando modelos…</option>';
+  if (!make) {
+    select.innerHTML = '<option value="">Selecciona una marca</option>';
+    return;
+  }
+  try {
+    const data = await api("/api/models?make=" + encodeURIComponent(make) + "&q=" + encodeURIComponent(q) + "&limit=500");
+    select.innerHTML = '<option value="">Todos los modelos</option>' +
+      data.map(x => '<option value="' + esc(x.model) + '" data-id="' + esc(x.id) + '">' + esc(x.model) + '</option>').join("");
+    select.disabled = false;
+  } catch (e) {
+    select.innerHTML = '<option value="">No se pudieron cargar los modelos</option>';
+  }
+}
+
+async function searchCatalog() {
+  const make = $("#makeSelect").value.trim();
+  const model = $("#modelSelect").value.trim();
+  const filter = $("#modelFilter").value.trim();
+  const engine = $("#catalogEngine").value.trim();
+  if (!make) {
+    showStatus("Selecciona una marca.");
+    return;
+  }
+  showStatus("Buscando vehículo exacto en el catálogo…");
+  try {
+    let results = [];
+    if (engine) {
+      results = await api("/api/engine-search?q=" + encodeURIComponent(engine));
+      results = results.filter(v => !make || v.make.toLowerCase() === make.toLowerCase());
+      if (model) results = results.filter(v => v.model.toLowerCase() === model.toLowerCase());
+    }
+    if (!results.length) {
+      const q = [make, model || filter].filter(Boolean).join(" ");
+      results = await api("/api/vehicles?q=" + encodeURIComponent(q));
+    }
+    render(results);
+    showStatus(results.length
+      ? results.length + " coincidencias en la base local"
+      : "No hay coincidencia local con esos criterios.");
+  } catch (e) {
+    showStatus("Error: " + e.message);
+  }
+}
+
+async function searchEngine() {
+  const engine = $("#engineHome").value.trim();
+  if (!engine) {
+    showStatus("Introduce un código o familia de motor.");
+    return;
+  }
+  showStatus("Buscando código de motor en la base local…");
+  try {
+    const local = await api("/api/engine-search?q=" + encodeURIComponent(engine));
+    if (local.length) {
+      render(local);
+      showStatus(local.length + " coincidencias relacionadas con " + engine);
+      return;
+    }
+    showStatus("No hay coincidencia local; buscando evidencia pública del motor…");
+    await runResearch({
+      vehicle_id:null,
+      make:"",
+      model:"",
+      engine,
+      category:"technical specifications"
+    });
+    showStatus("Sin coincidencia local. La evidencia web queda pendiente de contraste.");
+  } catch (e) {
+    showStatus("Error: " + e.message);
+  }
+}
+
+function renderVinDecode(data) {
+  const box = $("#vinDecode");
+  if (!box) return;
+  box.classList.remove("hidden");
+  if (!data.ok) {
+    box.innerHTML =
+      '<div class="eyebrow">DECODIFICACIÓN VIN</div><h3>No se pudo completar la decodificación</h3>' +
+      '<p>' + esc(data.error || "El servicio público no devolvió datos.") + '</p>' +
+      '<p class="small">VIN: ' + esc(data.vin || "") + ' · WMI: ' + esc(data.wmi || "") +
+      ' · Código de año: ' + esc(data.year_code || "") + '</p>';
+    box.scrollIntoView({behavior:"smooth"});
+    return;
+  }
+  const rows = (data.results || []).map(x =>
+    '<div class="vin-row"><b>' + esc(x.field) + '</b><span>' + esc(x.value) + '</span></div>'
+  ).join("");
+  box.innerHTML =
+    '<div class="detail-nav"><div class="nav-crumb">Identificación VIN</div><button id="closeVin" class="secondary">Cerrar</button></div>' +
+    '<div class="eyebrow">DECODIFICACIÓN PÚBLICA</div><h3>VIN ' + esc(data.vin) + '</h3>' +
+    '<p class="small">Fuente: ' + esc(data.source) + ' · ' + esc(data.confidence) +
+    '. Esta información sirve para orientar la identificación y no sustituye una fuente OEM o una base VIN europea licenciada.</p>' +
+    '<div class="vin-meta"><span>WMI: <b>' + esc(data.wmi) + '</b></span><span>VDS: <b>' + esc(data.vds) +
+    '</b></span><span>VIS: <b>' + esc(data.vis) + '</b></span><span>Código año: <b>' +
+    esc(data.year_code) + '</b></span></div>' +
+    '<div class="vin-grid">' + (rows || '<p>No hay campos públicos útiles para este VIN.</p>') + '</div>';
+  $("#closeVin").onclick = () => box.classList.add("hidden");
+  box.scrollIntoView({behavior:"smooth"});
+  const make = (data.results || []).find(x => x.field === "Marca")?.value || "";
+  const model = (data.results || []).find(x => x.field === "Modelo")?.value || "";
+  if (make || model) {
+    setTimeout(async () => {
+      try {
+        const q = [make, model].filter(Boolean).join(" ");
+        const local = await api("/api/vehicles?q=" + encodeURIComponent(q));
+        if (local.length) {
+          render(local);
+          showStatus(local.length + " coincidencias locales relacionadas con el VIN decodificado");
+        }
+      } catch (e) {}
+    }, 0);
+  }
+}
+
+async function decodeVin() {
+  const vin = $("#vinHome").value.trim().toUpperCase().replace(/[ -]/g,"");
+  if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
+    showStatus("El VIN debe tener 17 caracteres válidos, sin I, O ni Q.");
+    return;
+  }
+  showStatus("Decodificando VIN con fuente pública…");
+  try {
+    const data = await api("/api/vin/decode/" + encodeURIComponent(vin));
+    renderVinDecode(data);
+    showStatus(data.ok ? "VIN decodificado. Revisa la fuente y contrasta la variante exacta." : "VIN recibido; no hubo datos públicos suficientes.");
+  } catch (e) {
+    showStatus("Error al decodificar VIN: " + e.message);
+  }
+}
+
+async function saveHomeVin() {
+  const vin = $("#vinHome").value.trim().toUpperCase().replace(/[ -]/g,"");
+  if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
+    showStatus("El VIN debe tener 17 caracteres válidos, sin I, O ni Q.");
+    return;
+  }
+  try {
+    const r = await api("/api/vin", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({vin,vehicle_id:selected?.id || null})
+    });
+    showStatus(r.ok ? "VIN guardado en la base local." : "No se pudo guardar el VIN.");
+  } catch (e) {
+    showStatus("No se pudo guardar el VIN.");
   }
 }
 
@@ -110,8 +283,8 @@ async function openVehicle(id) {
     '</span></div><div class="metric"><b>Disponibilidad</b><span>' + esc(selected.availability || "—") +
     '</span></div><div class="metric"><b>Fuente</b><span>VehiclesDB</span></div></div>' +
     '<div class="card"><label for="vin">VIN / bastidor</label><input id="vin" maxlength="17" placeholder="17 caracteres">' +
-    '<div class="actions"><button id="savevin">Guardar VIN</button></div><p id="vinstatus" class="small">' +
-    'Se guarda como identificador técnico del vehículo. No se solicita ningún dato del propietario.</p></div>' +
+    '<div class="actions"><button id="savevin">Guardar VIN</button><button id="decodeDetailVin" class="secondary">Decodificar VIN</button></div>' +
+    '<p id="vinstatus" class="small">Se guarda como identificador técnico del vehículo. No se solicita ningún dato del propietario.</p></div>' +
     '<section class="technical"><div class="section-head"><div><div class="eyebrow">MÓDULOS TÉCNICOS</div>' +
     '<h3>Ficha de trabajo</h3></div><span class="status-chip">Estructura preparada · datos por contrastar</span></div>' +
     '<p class="small intro">La estructura sigue el flujo profesional de identificación → vehículo exacto → módulo técnico. ' +
@@ -119,6 +292,14 @@ async function openVehicle(id) {
     '<div class="modules">' + mods + '</div></section><button id="research" class="secondary">Investigar fuentes técnicas generales</button>';
   $("#research").onclick = () => research();
   $("#savevin").onclick = saveVin;
+  $("#decodeDetailVin").onclick = async () => {
+    const vin = $("#vin").value.trim().toUpperCase().replace(/[ -]/g,"");
+    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) { $("#vinstatus").textContent="VIN no válido."; return; }
+    $("#vinstatus").textContent="Decodificando VIN…";
+    const data = await api("/api/vin/decode/" + encodeURIComponent(vin));
+    renderVinDecode(data);
+    $("#vinstatus").textContent = data.ok ? "Decodificación pública realizada; contrasta la variante exacta." : "No hubo datos públicos suficientes.";
+  };
   $("#backResults").onclick = backToResults;
   $("#goTop").onclick = () => window.scrollTo({top:0,behavior:"smooth"});
   document.querySelectorAll(".module-btn").forEach((b) => {
@@ -130,7 +311,7 @@ async function openVehicle(id) {
 function backToResults() {
   $("#detail").classList.add("hidden");
   $("#webresults").classList.add("hidden");
-  $("#status").textContent = "Resultados disponibles.";
+  showStatus("Resultados disponibles.");
   $("#results").scrollIntoView({behavior:"smooth"});
 }
 
@@ -152,7 +333,7 @@ async function saveVin() {
 async function researchCategory(category) {
   const base = selected || {};
   if (!base.id) {
-    $("#status").textContent = "Selecciona primero un vehículo.";
+    showStatus("Selecciona primero un vehículo.");
     return;
   }
   try {
@@ -235,26 +416,48 @@ async function research(qOverride) {
   });
 }
 
+function initIdentification() {
+  document.querySelectorAll(".id-tab").forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll(".id-tab").forEach(x => x.classList.remove("active"));
+      document.querySelectorAll(".id-panel").forEach(x => x.classList.add("hidden"));
+      tab.classList.add("active");
+      const panel = document.querySelector('[data-panel="' + tab.dataset.idtab + '"]');
+      if (panel) panel.classList.remove("hidden");
+    };
+  });
+  loadMakes();
+  $("#makeSelect").onchange = () => loadModels($("#makeSelect").value, $("#modelFilter").value.trim());
+  $("#modelFilter").oninput = () => {
+    if ($("#makeSelect").value) loadModels($("#makeSelect").value, $("#modelFilter").value.trim());
+  };
+  $("#searchCatalog").onclick = searchCatalog;
+  $("#searchEngine").onclick = searchEngine;
+  $("#decodeVin").onclick = decodeVin;
+  $("#saveHomeVin").onclick = saveHomeVin;
+  $("#vinHome").addEventListener("keydown", e => { if (e.key === "Enter") decodeVin(); });
+  $("#engineHome").addEventListener("keydown", e => { if (e.key === "Enter") searchEngine(); });
+  $("#q").addEventListener("keydown", e => { if (e.key === "Enter") find(); });
+}
+
 function init() {
   $("#find").onclick = find;
   $("#internet").onclick = research;
-  $("#q").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") find();
-  });
   $("#refresh").onclick = async () => {
     if (!confirm("¿Actualizar la base abierta?")) return;
-    $("#status").textContent = "Actualizando…";
+    showStatus("Actualizando…");
     try {
       const r = await api("/api/database/refresh", {method:"POST"});
-      $("#status").textContent = r.ok
+      showStatus(r.ok
         ? "Base actualizada: " + Number(r.count).toLocaleString("es-ES") + " vehículos"
-        : "No se pudo actualizar: " + r.error;
+        : "No se pudo actualizar: " + r.error);
       await status();
       await find();
     } catch (e) {
-      $("#status").textContent = "Error: " + e.message;
+      showStatus("Error: " + e.message);
     }
   };
+  initIdentification();
   status();
 }
 
