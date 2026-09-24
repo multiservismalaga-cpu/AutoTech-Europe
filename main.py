@@ -221,6 +221,36 @@ def seed_verified_bmw_g20_320d():
           ("car/bmw/3-series-320d",category,field,value,unit,title,url,source_class,confidence,af,at,notes,now))
     c.commit(); c.close()
 
+def seed_verified_hyundai_kona_sx2_hev():
+    vehicle_id = "car/hyundai/kona-sx2-hev-2025"
+    c = db()
+    exists = c.execute("SELECT 1 FROM technical_records WHERE vehicle_id=? LIMIT 1",(vehicle_id,)).fetchone()
+    if exists:
+        c.close(); return
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [
+      ("technical specifications","Motor","1.6 GDi HEV","", "Nuevo Hyundai KONA — Características técnicas SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","CONTRASTADO","2025","2025","Ficha oficial Hyundai España."),
+      ("technical specifications","Cilindrada","1580","cm³", "Nuevo Hyundai KONA — Características técnicas SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","CONTRASTADO","2025","2025","4 cilindros en línea."),
+      ("technical specifications","Potencia combinada","141","CV", "Nuevo Hyundai KONA — Características técnicas SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","CONTRASTADO","2025","2025","104 kW de potencia total combinada."),
+      ("technical specifications","Par combinado","265","Nm", "Nuevo Hyundai KONA — Características técnicas SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","CONTRASTADO","2025","2025","Par máximo combinado publicado por Hyundai."),
+      ("technical specifications","Transmisión","DCT 6","", "Nuevo Hyundai KONA — Características técnicas SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","CONTRASTADO","2025","2025","Automático de doble embrague y 6 velocidades."),
+      ("technical specifications","Tracción","FWD","", "Nuevo Hyundai KONA — Características técnicas SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","CONTRASTADO","2025","2025","Tracción delantera."),
+      ("technical specifications","Código motor","G4LL","", "Cruce VIN Hyundai KONA SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","ALTA · CRUCE ESTRUCTURAL","2025","2025","Procede del cruce experimental VDS/estructura; no se presenta como identificación OEM del número de serie."),
+      ("lubricants","Aceite motor","3,8","L", "Lubricantes y cantidades recomendados — KONA Hybrid 2025","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/ideebd8cfc412.html","FABRICANTE / OEM","CONTRASTADO","2025","2025","Drenaje y llenado; SAE 5W-30, ACEA A5/B5."),
+      ("lubricants","Especificación aceite motor","SAE 5W-30, ACEA A5/B5","", "Lubricantes y cantidades recomendados — KONA Hybrid 2025","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/ideebd8cfc412.html","FABRICANTE / OEM","CONTRASTADO","2025","2025","El manual también exige aceite totalmente sintético API SN PLUS o superior, o ACEA A5/B5."),
+      ("lubricants","Líquido DCT","1,6-1,7","L", "Lubricantes y cantidades recomendados — KONA Hybrid 2025","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/ideebd8cfc412.html","FABRICANTE / OEM","CONTRASTADO","2025","2025","Especificaciones Hyundai indicadas en el manual."),
+      ("lubricants","Refrigerante motor","7,2","L", "Lubricantes y cantidades recomendados — KONA Hybrid 2025","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/ideebd8cfc412.html","FABRICANTE / OEM","CONTRASTADO","2025","2025","Mezcla de anticongelante y agua destilada, base etilenglicol para radiadores de aluminio."),
+      ("lubricants","Líquido de frenos","Según sea necesario","", "Lubricantes y cantidades recomendados — KONA Hybrid 2025","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/ideebd8cfc412.html","FABRICANTE / OEM","CONTRASTADO","2025","2025","DOT-4."),
+      ("lubricants","Combustible","38","L", "Lubricantes y cantidades recomendados — KONA Hybrid 2025","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/ideebd8cfc412.html","FABRICANTE / OEM","CONTRASTADO","2025","2025","Capacidad publicada en el manual."),
+      ("maintenance","Aceite y filtro","Según calendario de mantenimiento","", "Comprobación del aceite del motor y el filtro — KONA Hybrid 2025","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/idcc9b5d5ec25.html","FABRICANTE / OEM","CONTRASTADO","2025","2025","El manual remite al calendario de mantenimiento; no se inventa aquí un intervalo.")
+    ]
+    for category,field,value,unit,title,url,source_class,confidence,af,at,notes in rows:
+        c.execute("""INSERT INTO technical_records
+          (vehicle_id,category,field,value,unit,source_title,source_url,source_class,confidence,applicable_from,applicable_to,notes,created_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+          (vehicle_id,category,field,value,unit,title,url,source_class,confidence,af,at,notes,now))
+    c.commit(); c.close()
+
 def classify_source(url):
     domain=urllib.parse.urlparse(url).netloc.lower()
     if any(x in domain for x in [".gov","europa.eu","eur-lex.europa.eu"]): return "OFICIAL / ADMINISTRACIÓN"
@@ -331,6 +361,7 @@ def search_web(query,limit=8):
 def startup():
     init_db()
     seed_verified_bmw_g20_320d()
+    seed_verified_hyundai_kona_sx2_hev()
     ensure_seed_vehicle()
     SYNC_STATE.update({"sync":"comprobando","count":count_vehicles(),"dataset":meta_get("dataset_version")})
     meta_set("dataset_sync","comprobando")
@@ -472,6 +503,7 @@ def decode_vin_public(vin):
         value=str(row.get(key) or "").strip()
         if value and value.upper() not in {"NOT APPLICABLE","NOT REPORTED","UNKNOWN","0"}:
             data.append({"field":label,"value":value})
+    crosscheck = decode_hyundai_vin_crosscheck(vin)
     return {
         "ok":True,
         "vin":vin,
@@ -483,7 +515,8 @@ def decode_vin_public(vin):
         "vis":vin[9:17],
         "year_code":vin[9],
         "results":data,
-        "raw_count":len(results)
+        "raw_count":len(results),
+        "crosscheck":crosscheck
     }
 
 @app.get("/api/vin/decode/{vin}")
@@ -636,6 +669,12 @@ def technical(vehicle_id:str, category:str=Query("")):
             model=normalize(v["model"])
             if make=="bmw" and "320d" in model and "3 series" in model:
                 fallback_id="car/bmw/3-series-320d"
+                if category:
+                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
+                else:
+                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(fallback_id,)).fetchall()
+            elif make=="hyundai" and "kona" in model and "sx2" in model:
+                fallback_id="car/hyundai/kona-sx2-hev-2025"
                 if category:
                     rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
                 else:
