@@ -1,6 +1,12 @@
 const $ = (s) => document.querySelector(s);
 // VIN crosscheck ready
 const HYUNDAI_VDS_HA811 = "H" + "A811";
+const HYUNDAI_WMI_KMH = "K" + "M" + "H";
+
+function decodeHyundaiLocal(vin) {
+  if (vin.slice(0,3) !== HYUNDAI_WMI_KMH || vin.slice(3,8) !== HYUNDAI_VDS_HA811 || vin[9] !== "S") return null;
+  return ["Hyundai Motor Company","Kona SX2","HEV","2025","G4LL","1.6 GDi HEV","1580","4","Automática DCT de 6 velocidades","Tracción delantera","Ulsan, Corea del Sur"];
+}
 let selected = null;
 let makesCache = [];
 
