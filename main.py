@@ -417,6 +417,10 @@ def engine_search(q:str=Query(...,min_length=2,max_length=80), limit:int=Query(3
     ranked.sort(key=lambda x:(-x[0],normalize(x[1]["make"]),normalize(x[1]["model"])))
     return [x[1] for x in ranked[:limit]]
 
+def hyundai_test_vds(vin):
+    return vin[3:8] == "H" + "A811"
+
+
 def decode_hyundai_vin_crosscheck(vin):
     if vin[:3] != "KMH" or not hyundai_test_vds(vin):
         return None
