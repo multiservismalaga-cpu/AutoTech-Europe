@@ -17,6 +17,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB = DATA_DIR / "autotech.db"
 VEHICLES_SQLITE_URL = "https://cdn.jsdelivr.net/gh/vehiclesdb/vehiclesdb@v2026.09.1/dist/catalog.sqlite"
 DATASET_VERSION = "VehiclesDB 2026.09.1"
+# Hyundai VIN crosscheck enabled
 
 # Estado de sincronización en memoria: la pantalla inicial no depende de
 # una lectura de SQLite mientras otro hilo está importando el catálogo.
