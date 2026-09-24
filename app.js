@@ -190,6 +190,7 @@ function renderVinDecode(data) {
     box.scrollIntoView({behavior:"smooth"});
     return;
   }
+  const hx = decodeHyundaiLocal(data.vin);
   const rows = (data.results || []).map(x =>
     '<div class="vin-row"><b>' + esc(x.field) + '</b><span>' + esc(x.value) + '</span></div>'
   ).join("");
