@@ -194,6 +194,7 @@ function renderVinDecode(data) {
   const rows = (data.results || []).map(x =>
     '<div class="vin-row"><b>' + esc(x.field) + '</b><span>' + esc(x.value) + '</span></div>'
   ).join("");
+  const hxHtml = hx ? "<section class=\"vin-crosscheck\">VIN cruzado</section>" : "";
   box.innerHTML =
     '<div class="detail-nav"><div class="nav-crumb">Identificación VIN</div><button id="closeVin" class="secondary">Cerrar</button></div>' +
     '<div class="eyebrow">DECODIFICACIÓN PÚBLICA</div><h3>VIN ' + esc(data.vin) + '</h3>' +
