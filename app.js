@@ -1,4 +1,5 @@
 const $ = (s) => document.querySelector(s);
+// VIN crosscheck ready
 let selected = null;
 let makesCache = [];
 
