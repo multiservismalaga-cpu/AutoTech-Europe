@@ -50,7 +50,8 @@ function render(list) {
   const box = $("#results");
   if (!box) return;
   if (!list.length) {
-    box.innerHTML = '<div class="card"><b>No hay coincidencias.</b><p>Prueba otra búsqueda o utiliza evidencia pública.</p></div>';
+    if (hx) hxHtml += "<p class=\"small\">Year: " + esc(hx[3]) + " | Engine: " + esc(hx[4]) + " | " + esc(hx[5]) + " | " + esc(hx[6]) + " cc</p>";
+  box.innerHTML = '<div class="card"><b>No hay coincidencias.</b><p>Prueba otra búsqueda o utiliza evidencia pública.</p></div>';
     return;
   }
   box.innerHTML = list.map((v) =>
