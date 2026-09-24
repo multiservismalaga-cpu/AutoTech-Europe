@@ -5,7 +5,7 @@ const HYUNDAI_WMI_KMH = "K" + "M" + "H";
 
 function decodeHyundaiLocal(vin) {
   if (vin.slice(0,3) !== HYUNDAI_WMI_KMH || vin.slice(3,8) !== HYUNDAI_VDS_HA811 || vin[9] !== "S") return null;
-  return ["Hyundai Motor Company","Kona SX2","HEV","2025","G4LL","1.6 GDi HEV","1580","4","Automática DCT de 6 velocidades","Tracción delantera","Ulsan, Corea del Sur"];
+  return {matched:true,manufacturer:"Hyundai Motor Company",model:"Kona SX2",variant:"HEV",model_year:2025,engine_code:"G4LL",engine:"1.6 GDi HEV",displacement_cc:"1580",cylinders:"4",transmission:"Automática DCT de 6 velocidades",drive:"Tracción delantera",plant:"Ulsan, Corea del Sur",confidence:"ALTA · VDS + plataforma + año compatible",limitation:"Cruce local experimental; no sustituye una identificación OEM del número de serie."};
 }
 let selected = null;
 let makesCache = [];
