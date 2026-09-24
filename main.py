@@ -22,7 +22,7 @@ DATASET_VERSION = "VehiclesDB 2026.09.1"
 # una lectura de SQLite mientras otro hilo está importando el catálogo.
 SYNC_STATE = {"sync":"iniciando","count":0,"error":None,"dataset":None,"updated_at":None}
 
-app = FastAPI(title="AutoTech Europe", version="1.4.0")
+app = FastAPI(title="AutoTech Europe", version="1.5.0")
 app.mount("/static", StaticFiles(directory=APP_DIR), name="static")
 
 def db():
