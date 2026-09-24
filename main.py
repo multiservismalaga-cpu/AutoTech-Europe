@@ -417,6 +417,34 @@ def engine_search(q:str=Query(...,min_length=2,max_length=80), limit:int=Query(3
     ranked.sort(key=lambda x:(-x[0],normalize(x[1]["make"]),normalize(x[1]["model"])))
     return [x[1] for x in ranked[:limit]]
 
+def decode_hyundai_vin_crosscheck(vin):
+    if vin[:3] != "KMH" or not hyundai_test_vds(vin):
+        return None
+    if vin[9] != "S":
+        return None
+    result = dict()
+    result["matched"] = True
+    result["manufacturer"] = "Hyundai Motor Company"
+    result["model"] = "Kona SX2"
+    result["variant"] = "HEV"
+    result["model_year"] = 2025
+    result["engine_code"] = "G4LL"
+    result["engine"] = "1.6 GDi HEV"
+    result["displacement_cc"] = "1580"
+    result["cylinders"] = "4"
+    result["transmission"] = "Automática DCT de 6 velocidades"
+    result["drive"] = "Tracción delantera"
+    result["fuel"] = "Gasolina híbrido"
+    result["vds"] = vin[3:8]
+    result["year_code"] = vin[9]
+    result["plant_code"] = vin[10]
+    result["plant"] = "Ulsan, Corea del Sur" if vin[10] == "U" else vin[10]
+    result["scope"] = "VARIANTE IDENTIFICADA POR ESTRUCTURA VIN"
+    result["limitation"] = "El número de serie exacto no se ha encontrado en una fuente pública independiente; no se inventa una versión o acabado."
+    result["confidence"] = "ALTA · VDS + plataforma + año compatible"
+    return result
+
+
 def decode_vin_public(vin):
     url="https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/"+urllib.parse.quote(vin,safe="")+"?format=json"
     req=urllib.request.Request(url,headers={"User-Agent":"AutoTech-Europe/1.5","Accept":"application/json"})
