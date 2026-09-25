@@ -225,7 +225,7 @@ def seed_verified_hyundai_kona_sx2_hev():
     vehicle_id = "car/hyundai/kona-sx2-hev-2025"
     c = db()
     exists = c.execute("SELECT 1 FROM technical_records WHERE vehicle_id=? LIMIT 1",(vehicle_id,)).fetchone()
-    if exists:
+    if exists and meta_get("hyundai_kona_maintenance_seed") == "1":
         c.close(); return
     now = datetime.now(timezone.utc).isoformat()
     rows = [
@@ -258,7 +258,9 @@ def seed_verified_hyundai_kona_sx2_hev():
           (vehicle_id,category,field,value,unit,source_title,source_url,source_class,confidence,applicable_from,applicable_to,notes,created_at)
           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
           (vehicle_id,category,field,value,unit,title,url,source_class,confidence,af,at,notes,now))
-    c.commit(); c.close()
+    c.commit()
+    meta_set("hyundai_kona_maintenance_seed","1")
+    c.close()
 
 def classify_source(url):
     domain=urllib.parse.urlparse(url).netloc.lower()
