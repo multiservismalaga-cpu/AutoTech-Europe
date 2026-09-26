@@ -1,0 +1,42 @@
+{
+  "vehicle": "Hyundai KONA SX2 HEV 2025",
+  "scope": "EUROPA",
+  "source": "Manual del propietario SX2HEV, sección Maintenance, Normal maintenance schedule (Gasoline engine, for Europe)",
+  "official_reference": "https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/indexterm.html",
+  "verified_items": [
+    {
+      "item": "Correa HSG",
+      "inspect": "15.000 km o 12 meses, lo que ocurra primero",
+      "replace": "105.000 km o 48 meses, lo que ocurra primero",
+      "confidence": "ALTA"
+    },
+    {
+      "item": "Aceite y filtro de motor",
+      "replace": "15.000 km o 12 meses, lo que ocurra primero",
+      "confidence": "ALTA"
+    },
+    {
+      "item": "Filtro de aire del motor",
+      "schedule": "inspección en los hitos de 30.000 km; sustitución en los hitos de 60.000 km, repitiéndose el patrón",
+      "confidence": "ALTA"
+    },
+    {
+      "item": "Refrigerante motor/sistema de batería",
+      "replace": "primera sustitución a 180.000 km o 10 años; posteriormente según calendario europeo",
+      "confidence": "ALTA"
+    },
+    {
+      "item": "Líquido DCT",
+      "normal_use": "sin comprobación ni mantenimiento programado",
+      "severe_use": "seguir el calendario de condiciones severas",
+      "confidence": "ALTA"
+    }
+  ],
+  "not_verified_here": [
+    "intervalo exacto de bujías",
+    "intervalo exacto de líquido de frenos",
+    "intervalo exacto del filtro de habitáculo",
+    "intervalo exacto del actuador de embrague"
+  ],
+  "rule": "No mezclar tablas de Australia, EE. UU. u otros mercados con Europa/España."
+}
