@@ -278,6 +278,42 @@ def seed_verified_hyundai_kona_sx2_hev():
     c.close()
     meta_set("hyundai_kona_maintenance_seed",seed_version)
 
+def seed_verified_hyundai_kona_sx2_hev_electrical():
+    vehicle_id = "car/hyundai/kona-sx2-hev-2025"
+    seed_version = "1"
+    meta_key = "hyundai_kona_electrical_seed"
+    if meta_get(meta_key) == seed_version:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [
+      ("electrical","DCT 1","40 A","Panel de fusibles compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","TCM"),
+      ("electrical","DCT 2","40 A","Panel de fusibles compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","TCM"),
+      ("electrical","CLUTCH ACT","30 A","Panel de fusibles compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","Actuador del embrague"),
+      ("electrical","HEV ECU 1","15 A","Panel de fusibles compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","HPCU"),
+      ("electrical","HEV ECU 2","10 A","Bloque PCB compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","HPCU y actuador del embrague"),
+      ("electrical","EWP 1","10 A","Panel de fusibles compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","Bomba de agua electrónica del motor"),
+      ("electrical","EWP 2","7,5 A","Panel de fusibles compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","Bomba de agua electrónica HEV"),
+      ("electrical","IEB 1","60 A","Panel de fusibles compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","Unidad IEB"),
+      ("electrical","IEB 2","60 A","Panel de fusibles compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","Unidad IEB"),
+      ("electrical","AUX BATTERY","60 A","Panel de fusibles compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","Batería auxiliar de litio de 12 V"),
+      ("electrical","ECU 1","20 A","Bloque PCB compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","ECM"),
+      ("electrical","IGN COIL","20 A","Bloque PCB compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","Inyectores 1 a 4"),
+      ("electrical","SENSOR 1","15 A","Bloque PCB compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","Sensor de oxígeno arriba/abajo"),
+      ("electrical","TCU 2","15 A","Bloque PCB compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","TCM"),
+      ("electrical","FCA","10 A","Bloque PCB compartimento motor","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/id4df25f244f1.html","Unidad de radar delantero")
+    ]
+    c=db()
+    for category,field,value,location,url,circuit in rows:
+        exists=c.execute("SELECT 1 FROM technical_records WHERE vehicle_id=? AND category=? AND field=? LIMIT 1",(vehicle_id,category,field)).fetchone()
+        if exists: continue
+        c.execute("""INSERT INTO technical_records
+          (vehicle_id,category,field,value,unit,source_title,source_url,source_class,confidence,applicable_from,applicable_to,notes,created_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+          (vehicle_id,category,field,value,"", "Descripción del panel de fusibles/relés — KONA Hybrid 2025",
+           url,"FABRICANTE / OEM","CONTRASTADO","2025","2025",location+" · Circuito protegido: "+circuit,now))
+    c.commit(); c.close()
+    meta_set(meta_key,seed_version)
+
 def classify_source(url):
     domain=urllib.parse.urlparse(url).netloc.lower()
     if any(x in domain for x in [".gov","europa.eu","eur-lex.europa.eu"]): return "OFICIAL / ADMINISTRACIÓN"
@@ -389,6 +425,7 @@ def startup():
     init_db()
     seed_verified_bmw_g20_320d()
     seed_verified_hyundai_kona_sx2_hev()
+    seed_verified_hyundai_kona_sx2_hev_electrical()
     ensure_seed_vehicle()
     SYNC_STATE.update({"sync":"comprobando","count":count_vehicles(),"dataset":meta_get("dataset_version")})
     meta_set("dataset_sync","comprobando")
