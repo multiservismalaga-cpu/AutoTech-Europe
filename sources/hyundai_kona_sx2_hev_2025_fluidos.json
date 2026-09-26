@@ -1,0 +1,18 @@
+{
+  "vehicle": "Hyundai KONA SX2 HEV 2025",
+  "scope": "Especificaciones europeas/es_ES del manual del propietario",
+  "source": "https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/ideebd8cfc412.html",
+  "fluids": [
+    {"item":"Aceite motor","capacity":"3,8 L","spec":"SAE 5W-30, ACEA A5/B5","confidence":"ALTA"},
+    {"item":"DCT","capacity":"1,6-1,7 L","spec":"HK D DCTF TGO-10 PLUS (SK), SPIRAX S6 GHDE 70W DCTF PLUS (SHELL) o Hyundai Genuine DCTF 70W SYNTHETIC PLUS","confidence":"ALTA"},
+    {"item":"Refrigerante motor","capacity":"7,2 L","spec":"Mezcla de anticongelante y agua destilada; base etilenglicol para radiadores de aluminio","confidence":"ALTA"},
+    {"item":"Líquido de frenos","capacity":"Según sea necesario","spec":"DOT-4","confidence":"ALTA"},
+    {"item":"Aceite diferencial trasero","capacity":"0,4-0,5 L","spec":"API GL-5, SAE 75W/85; SK HCT-5 75W/85 o equivalente","confidence":"ALTA"},
+    {"item":"Líquido actuador embrague motor","capacity":"Según sea necesario","spec":"SAE J1704 DOT-4LV / FMVSS 116 DOT-4 / ISO4926 CLASS-6","confidence":"ALTA"}
+  ],
+  "notes": [
+    "La capacidad de fluido no implica por sí sola un intervalo de sustitución.",
+    "El manual español indica comprobar regularmente el nivel del líquido del actuador y no mezclar tipos de fluido.",
+    "No se incorporan intervalos de servicio no verificados."
+  ]
+}
