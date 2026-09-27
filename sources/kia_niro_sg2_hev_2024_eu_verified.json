@@ -1,0 +1,112 @@
+{
+  "vehicle": "Kia Niro SG2 HEV, generación 2022+, documentación europea 2024",
+  "scope": "Mantenimiento normal para Europa y especificaciones públicas del sistema HEV",
+  "primary_sources": [
+    "https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html",
+    "https://www.kia.com/es/modelos/niro/descubrelo/",
+    "https://press.kia.com/es/es/home/notas-de-prensa/press-releases/2022/la-sostenibilidad-simplificada--el-nuevo-kia-niro-acelerara-la-t.html"
+  ],
+  "secondary_sources": [
+    {
+      "url": "https://www.gov.il/BlobFolder/policy/25-0737/he/25-0737.pdf",
+      "purpose": "Documento de homologación que identifica Niro variante C5P11 con motor G4LL; no se clasifica como fuente OEM."
+    }
+  ],
+  "verified": [
+    {
+      "item": "Motor",
+      "value": "Smartstream 1.6 GDi HEV",
+      "confidence": "ALTA",
+      "source": "Kia España / Kia Press"
+    },
+    {
+      "item": "Cilindrada",
+      "value": "1.580 cm³",
+      "confidence": "ALTA",
+      "source": "Kia España"
+    },
+    {
+      "item": "Potencia combinada",
+      "value": "141 CV / 104 kW",
+      "confidence": "ALTA",
+      "source": "Kia Press 2022"
+    },
+    {
+      "item": "Transmisión",
+      "value": "6DCT, doble embrague, 6 velocidades",
+      "confidence": "ALTA",
+      "source": "Kia España / Kia Press"
+    },
+    {
+      "item": "Tracción",
+      "value": "Delantera (FWD)",
+      "confidence": "ALTA",
+      "source": "Kia España"
+    },
+    {
+      "item": "Par combinado",
+      "value": "265 Nm",
+      "confidence": "ALTA",
+      "source": "Kia Press 2022"
+    },
+    {
+      "item": "Aceite y filtro motor",
+      "value": "Sustituir cada 15.000 km o 12 meses",
+      "confidence": "ALTA",
+      "source": "Manual Kia Europa SG2 2024"
+    },
+    {
+      "item": "Refrigerante motor",
+      "value": "Primera sustitución a 180.000 km o 120 meses; después cada 30.000 km o 24 meses",
+      "confidence": "ALTA",
+      "source": "Manual Kia Europa SG2 2024"
+    },
+    {
+      "item": "Refrigerante inversor HEV",
+      "value": "Primera sustitución a 180.000 km o 120 meses; después cada 30.000 km o 24 meses",
+      "confidence": "ALTA",
+      "source": "Manual Kia Europa SG2 2024"
+    },
+    {
+      "item": "Correa HSG",
+      "value": "Inspeccionar cada 15.000 km o 12 meses; sustituir cada 105.000 km o 48 meses",
+      "confidence": "ALTA",
+      "source": "Manual Kia Europa SG2 2024"
+    },
+    {
+      "item": "Bujías",
+      "value": "Sustituir cada 150.000 km",
+      "confidence": "ALTA",
+      "source": "Manual Kia Europa SG2 2024"
+    },
+    {
+      "item": "Líquido DCT",
+      "value": "No requiere comprobación ni mantenimiento en uso normal",
+      "confidence": "ALTA",
+      "source": "Manual Kia Europa SG2 2024"
+    },
+    {
+      "item": "Actuador embrague motor",
+      "value": "Inspección a 15/45/75/105 km x1000; sustitución a 30/60/90/120 km x1000",
+      "confidence": "ALTA",
+      "source": "Manual Kia Europa SG2 2024"
+    },
+    {
+      "item": "Líquido de frenos",
+      "value": "Inspección a 15/45/75/105 km x1000; sustitución a 30/60/90/120 km x1000",
+      "confidence": "ALTA",
+      "source": "Manual Kia Europa SG2 2024"
+    },
+    {
+      "item": "G4LL",
+      "value": "Código de motor identificado para una variante Niro C5P11 en documentación de homologación pública",
+      "confidence": "MEDIA · HOMOLOGACIÓN",
+      "source": "Ministerio de Transportes de Israel; no OEM"
+    }
+  ],
+  "important_notes": [
+    "No mezclar esta tabla europea con calendarios de otros mercados.",
+    "La capacidad de un fluido y su intervalo de sustitución son campos independientes.",
+    "El código G4LL queda separado de la identificación OEM hasta disponer de documentación de reparación/fabricante que lo asocie inequívocamente a la variante concreta."
+  ]
+}
