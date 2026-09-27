@@ -817,10 +817,17 @@ def research(payload:dict):
         "cost estimate":"coste reparación presupuesto",
     }
     term=category_terms.get(category,category)
-    query=" ".join(x for x in [make,model,year,engine,term] if x)
     requested_vehicle_id=vehicle_id
     profile=find_technical_profile(vehicle_id,category) if vehicle_id else {"profile_vehicle_id":None,"match":"none"}
     research_vehicle_id=profile.get("profile_vehicle_id") or vehicle_id
+    # Cuando existe un perfil común, normalizamos también la consulta al nombre
+    # canónico de ese perfil; así "Niro SG2", "Niro HEV" y variantes equivalentes
+    # no generan cachés separados por simple diferencia de nomenclatura.
+    if profile.get("profile_vehicle_id") and profile.get("match")=="family":
+        pctx=vehicle_variant_context(research_vehicle_id) or {}
+        query=" ".join(x for x in [pctx.get("make"),pctx.get("model"),term] if x)
+    else:
+        query=" ".join(x for x in [make,model,year,engine,term] if x)
     # La caché técnica se asocia al perfil reutilizable cuando existe, no al
     # ID individual del catálogo. Así una familia/variante ya investigada no
     # dispara la misma búsqueda para cada fila de VehiclesDB.
