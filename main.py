@@ -170,6 +170,19 @@ def ensure_seed_variants():
             variant_id=excluded.variant_id,match_method=excluded.match_method,
             confidence=excluded.confidence,created_at=excluded.created_at""",
           (v["variant_id"],v["variant_id"],"canonical-profile","CONTRASTADO",now))
+    catalog_rows=c.execute("SELECT id,make,model FROM vehicles").fetchall()
+    for row in catalog_rows:
+        nm=normalize((row["make"] or "")+" "+(row["model"] or ""))
+        target=None
+        if "hyundai" in nm and "kona" in nm and "sx2" in nm and ("hev" in nm or "hybrid" in nm):
+            target="car/hyundai/kona-sx2-hev-2025"
+        elif "kia" in nm and "niro" in nm and ("sg2" in nm or "hev" in nm or "hybrid" in nm):
+            target="car/kia/niro-sg2-hev-2024"
+        elif "bmw" in nm and "3 series 320d" in nm:
+            target="car/bmw/3-series-320d"
+        if target:
+            c.execute("INSERT INTO vehicle_variant_map(vehicle_id,variant_id,match_method,confidence,created_at) VALUES(?,?,?,?,?) ON CONFLICT(vehicle_id) DO UPDATE SET variant_id=excluded.variant_id,match_method=excluded.match_method,confidence=excluded.confidence,created_at=excluded.created_at",
+                      (row["id"],target,"catalog-explicit-model-signals","ALTA",now))
     c.commit(); c.close()
 
 
@@ -280,20 +293,22 @@ def find_technical_profile(vehicle_id, category=""):
     if exact:
         c.close()
         return {"profile_vehicle_id":vehicle_id,"variant_id":vehicle_id,"match":"exact","reason":"exact_technical_records"}
-    make=normalize(ctx["make"]); model=normalize(ctx["model"])
-    # Solo reutilizamos perfiles cuando la regla de familia está declarada.
-    family_rules=[
-        ("kia","niro","car/kia/niro-sg2-hev-2024"),
-        ("hyundai","kona","car/hyundai/kona-sx2-hev-2025"),
-        ("bmw","3 series 320d","car/bmw/3-series-320d")
-    ]
-    for rule_make,rule_model,profile in family_rules:
-        if make==rule_make and rule_model in model:
-            n=c.execute("SELECT COUNT(*) n FROM technical_records WHERE vehicle_id=?"+(" AND category=?" if category else ""),
-                        (profile,category) if category else (profile,)).fetchone()["n"]
-            if n:
-                c.close()
-                return {"profile_vehicle_id":profile,"match":"family","reason":"declared_family_profile"}
+    raw=ctx.get("raw") or {}
+    resolved=resolve_variant_signals({
+        "make":ctx.get("make"),"model":ctx.get("model"),
+        "year":raw.get("year") or raw.get("model_year"),
+        "engine":raw.get("engine") or raw.get("engine_name"),
+        "engine_code":raw.get("engine_code"),
+        "transmission":raw.get("transmission"),"drive":raw.get("drive"),
+        "fuel":raw.get("fuel"),"market":raw.get("market")
+    })
+    if resolved:
+        profile=resolved["variant_id"]
+        n=c.execute("SELECT COUNT(*) n FROM technical_records WHERE vehicle_id=?"+(" AND category=?" if category else ""),
+                    (profile,category) if category else (profile,)).fetchone()["n"]
+        if n:
+            c.close()
+            return {"profile_vehicle_id":profile,"variant_id":profile,"match":"signals","confidence":"ALTA","reason":"technical_signals"}
     c.close()
     return {"profile_vehicle_id":None,"match":"none","reason":"no_verified_profile"}
 
