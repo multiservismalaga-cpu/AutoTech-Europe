@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from datetime import datetime, timezone
 import json, os, re, sqlite3, threading, urllib.parse, urllib.request, webbrowser
+from datetime import timedelta
 from html.parser import HTMLParser
 import uvicorn
 
@@ -766,23 +767,49 @@ def research(payload:dict):
     }
     term=category_terms.get(category,category)
     query=" ".join(x for x in [make,model,year,engine,term] if x)
+    # Caché de evidencia: el catálogo es masivo y la profundidad técnica se
+    # resuelve bajo demanda. Una búsqueda ya realizada para el mismo vehículo,
+    # módulo y consulta se reutiliza durante 30 días en vez de volver a salir
+    # a Internet cada vez que el usuario abre el módulo.
+    now=datetime.now(timezone.utc)
+    try:
+        c=db()
+        cached=c.execute(
+            """SELECT title,url,domain,source_class,confidence,snippet,fetched_at
+               FROM evidence
+               WHERE vehicle_id IS ? AND category=? AND query=?
+               ORDER BY id DESC LIMIT 20""",
+            (vehicle_id,category,query)
+        ).fetchall()
+        c.close()
+        if cached:
+            newest=cached[0]["fetched_at"]
+            try:
+                age=(now-datetime.fromisoformat(newest.replace("Z","+00:00"))).total_seconds()
+            except Exception:
+                age=999999999
+            if age < 30*86400:
+                return {"ok":True,"query":query,"results":[dict(x) for x in cached],"cached":True}
+    except Exception:
+        pass
     try:
         results=search_web(query)
     except Exception as exc:
         return {"ok":False,"error":f"No se pudo consultar Internet: {exc}","results":[]}
-    now=datetime.now(timezone.utc).isoformat()
+    fetched_at=now.isoformat()
     c=db()
     for item in results:
         c.execute(
             "INSERT INTO evidence(vehicle_id,query,category,title,url,domain,source_class,confidence,snippet,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
             (vehicle_id,query,category,item["title"],item["url"],urllib.parse.urlparse(item["url"]).netloc,
-             classify_source(item["url"]),"PENDIENTE DE CONTRASTE",item["snippet"],now)
+             classify_source(item["url"]),"PENDIENTE DE CONTRASTE",item["snippet"],fetched_at)
         )
         item["source_class"]=classify_source(item["url"])
         item["confidence"]="PENDIENTE DE CONTRASTE"
+        item["fetched_at"]=fetched_at
     c.commit()
     c.close()
-    return {"ok":True,"query":query,"results":results}
+    return {"ok":True,"query":query,"results":results,"cached":False}
 
 @app.get("/api/technical/{vehicle_id:path}")
 def technical(vehicle_id:str, category:str=Query("")):
