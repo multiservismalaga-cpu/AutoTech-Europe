@@ -868,7 +868,7 @@ def decode_vin_public(vin):
     }
     if crosscheck:
         signals.update({
-            "make":crosscheck.get("manufacturer","Hyundai"),
+            "make":"Hyundai",
             "model":crosscheck.get("model"),
             "year":crosscheck.get("model_year"),
             "engine":crosscheck.get("engine"),
