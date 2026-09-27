@@ -80,6 +80,20 @@ class VariantResolutionRegression(unittest.TestCase):
         self.assertIsNotNone(r)
         self.assertEqual(r["variant_id"], "car/kia/niro-sg2-hev-2024")
 
+    def test_transmission_token_order_does_not_break_resolution(self):
+        r = main.resolve_variant_signals({
+            "make": "Kia",
+            "model": "Niro SG2 HEV",
+            "year": "2024",
+            "engine_code": "G4LL",
+            "transmission": "6-speed DCT",
+            "drive": "FWD",
+            "fuel": "Gasolina híbrido",
+            "market": "ES/EU",
+        })
+        self.assertIsNotNone(r)
+        self.assertEqual(r["variant_id"], "car/kia/niro-sg2-hev-2024")
+
     def test_engine_code_alone_does_not_select_between_models(self):
         r = main.resolve_variant_signals({"engine_code": "G4LL"})
         self.assertIsNone(r)
