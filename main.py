@@ -336,7 +336,12 @@ def resolve_variant_signals(signals):
             if engine==ef or engine in ef or ef in engine: score+=5
         if transmission:
             rt=normalize(row["transmission"])
-            if transmission==rt or transmission in rt or rt in transmission: score+=3
+            # Las fuentes públicas no usan siempre el mismo orden/formato
+            # (p. ej. "DCT 6" frente a "6-speed DCT").
+            t_tokens=set(transmission.split())
+            r_tokens=set(rt.split())
+            if transmission==rt or transmission in rt or rt in transmission or t_tokens.issubset(r_tokens) or r_tokens.issubset(t_tokens):
+                score+=3
         if drive:
             if drive==normalize(row["drive"]): score+=3
         if fuel:
