@@ -818,6 +818,12 @@ def research(payload:dict):
     }
     term=category_terms.get(category,category)
     query=" ".join(x for x in [make,model,year,engine,term] if x)
+    requested_vehicle_id=vehicle_id
+    profile=find_technical_profile(vehicle_id,category) if vehicle_id else {"profile_vehicle_id":None,"match":"none"}
+    research_vehicle_id=profile.get("profile_vehicle_id") or vehicle_id
+    # La caché técnica se asocia al perfil reutilizable cuando existe, no al
+    # ID individual del catálogo. Así una familia/variante ya investigada no
+    # dispara la misma búsqueda para cada fila de VehiclesDB.
     # Caché de evidencia: el catálogo es masivo y la profundidad técnica se
     # resuelve bajo demanda. Una búsqueda ya realizada para el mismo vehículo,
     # módulo y consulta se reutiliza durante 30 días en vez de volver a salir
@@ -830,7 +836,7 @@ def research(payload:dict):
                FROM evidence
                WHERE vehicle_id IS ? AND category=? AND query=?
                ORDER BY id DESC LIMIT 20""",
-            (vehicle_id,category,query)
+            (research_vehicle_id,category,query)
         ).fetchall()
         c.close()
         if cached:
@@ -840,7 +846,7 @@ def research(payload:dict):
             except Exception:
                 age=999999999
             if age < 30*86400:
-                return {"ok":True,"query":query,"results":[dict(x) for x in cached],"cached":True}
+                return {"ok":True,"query":query,"results":[dict(x) for x in cached],"cached":True,"profile_vehicle_id":research_vehicle_id,"requested_vehicle_id":requested_vehicle_id}
     except Exception:
         pass
     try:
@@ -852,7 +858,7 @@ def research(payload:dict):
     for item in results:
         c.execute(
             "INSERT INTO evidence(vehicle_id,query,category,title,url,domain,source_class,confidence,snippet,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
-            (vehicle_id,query,category,item["title"],item["url"],urllib.parse.urlparse(item["url"]).netloc,
+            (research_vehicle_id,query,category,item["title"],item["url"],urllib.parse.urlparse(item["url"]).netloc,
              classify_source(item["url"]),"PENDIENTE DE CONTRASTE",item["snippet"],fetched_at)
         )
         item["source_class"]=classify_source(item["url"])
@@ -860,7 +866,7 @@ def research(payload:dict):
         item["fetched_at"]=fetched_at
     c.commit()
     c.close()
-    return {"ok":True,"query":query,"results":results,"cached":False}
+    return {"ok":True,"query":query,"results":results,"cached":False,"profile_vehicle_id":research_vehicle_id,"requested_vehicle_id":requested_vehicle_id}
 
 @app.get("/api/technical/{vehicle_id:path}")
 def technical(vehicle_id:str, category:str=Query("")):
