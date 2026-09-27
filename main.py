@@ -226,7 +226,7 @@ def seed_verified_hyundai_kona_sx2_hev():
     # Seed incremental e idempotente: añade solo registros que todavía no existan.
     # Así una actualización de datos no duplica información en instalaciones existentes.
     vehicle_id = "car/hyundai/kona-sx2-hev-2025"
-    seed_version = "3"
+    seed_version = "4"
     if meta_get("hyundai_kona_maintenance_seed") == seed_version:
         return
     now = datetime.now(timezone.utc).isoformat()
@@ -449,7 +449,7 @@ def ensure_seed_kia_niro_vehicle():
 
 def seed_verified_kia_niro_sg2_hev():
     vehicle_id = "car/kia/niro-sg2-hev-2024"
-    seed_version = "1"
+    seed_version = "2"
     ensure_seed_kia_niro_vehicle()
     if meta_get("kia_niro_sg2_seed") == seed_version:
         return
