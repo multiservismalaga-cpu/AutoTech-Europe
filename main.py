@@ -257,25 +257,6 @@ def ensure_evidence_variant_links():
 
 
 def ensure_technical_variant_links():
-    """Backfill explícito de technical_records hacia el perfil técnico canónico."""
-    c=db()
-    c.execute("""
-      UPDATE technical_records
-      SET variant_id=(
-        SELECT vvm.variant_id
-        FROM vehicle_variant_map vvm
-        WHERE vvm.vehicle_id=technical_records.vehicle_id
-      )
-      WHERE variant_id IS NULL
-        AND EXISTS (
-          SELECT 1 FROM vehicle_variant_map vvm
-          WHERE vvm.vehicle_id=technical_records.vehicle_id
-        )
-    """)
-    c.commit(); c.close()
-
-
-def ensure_technical_variant_links():
     """Backfill de registros existentes hacia la variante técnica canónica."""
     c=db()
     c.execute("""
@@ -326,7 +307,6 @@ def resolve_variant_signals(signals):
         shared = [
             row for row in rows
             if engine_code == normalize(row["engine_code"])
-            and (not make or make == normalize(row["make"]))
         ]
         if len({row["variant_id"] for row in shared}) > 1:
             return None
