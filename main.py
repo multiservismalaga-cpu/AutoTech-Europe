@@ -420,11 +420,47 @@ def search_web(query,limit=8):
         if len(out)>=limit: break
     return out
 
+
+def seed_verified_kia_niro_sg2_hev():
+    vehicle_id = "car/kia/niro-sg2-hev-2024"
+    seed_version = "1"
+    if meta_get("kia_niro_sg2_seed") == seed_version:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [
+      ("technical specifications","Motor","Smartstream 1.6 GDi HEV","", "Kia Niro — especificaciones","https://www.kia.com/es/modelos/niro/descubrelo/","FABRICANTE / OEM","CONTRASTADO","2022","2026","Motor gasolina 1.6 GDI; sistema HEV."),
+      ("technical specifications","Cilindrada","1580","cm³","El nuevo Kia Niro impulsa la movilidad sostenible","https://press.kia.com/es/es/home/notas-de-prensa/press-releases/2022/la-sostenibilidad-simplificada--el-nuevo-kia-niro-acelerara-la-t.html","FABRICANTE / OEM","CONTRASTADO","2022","2026","Cilindrada."),
+      ("technical specifications","Potencia combinada","141","CV","El nuevo Kia Niro impulsa la movilidad sostenible","https://press.kia.com/es/es/home/notas-de-prensa/press-releases/2022/la-sostenibilidad-simplificada--el-nuevo-kia-niro-acelerara-la-t.html","FABRICANTE / OEM","CONTRASTADO","2022","2026","HEV: 141 CV."),
+      ("technical specifications","Par combinado","265","Nm","El nuevo Kia Niro impulsa la movilidad sostenible","https://press.kia.com/es/es/home/notas-de-prensa/press-releases/2022/la-sostenibilidad-simplificada--el-nuevo-kia-niro-acelerara-la-t.html","FABRICANTE / OEM","CONTRASTADO","2022","2026","Par máximo combinado."),
+      ("technical specifications","Transmisión","6DCT","", "Kia Niro — especificaciones","https://www.kia.com/es/modelos/niro/descubrelo/","FABRICANTE / OEM","CONTRASTADO","2022","2026","Doble embrague, 6 velocidades."),
+      ("technical specifications","Tracción","FWD","", "Kia Niro — especificaciones","https://www.kia.com/es/modelos/niro/descubrelo/","FABRICANTE / OEM","CONTRASTADO","2022","2026","Tracción delantera."),
+      ("maintenance","Aceite y filtro de motor","Cada 15.000 km o 12 meses","", "Servicio de mantenimiento programado — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2026","Lo que ocurra primero."),
+      ("maintenance","Refrigerante motor","Primero 180.000 km o 120 meses; después 30.000 km o 24 meses","", "Servicio de mantenimiento programado — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2026","Calendario normal europeo."),
+      ("maintenance","Refrigerante inversor HEV","Primero 180.000 km o 120 meses; después 30.000 km o 24 meses","", "Servicio de mantenimiento programado — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2026","Calendario normal europeo."),
+      ("maintenance","Correa HSG","Inspeccionar 15.000 km/12 meses; sustituir 105.000 km/48 meses","", "Servicio de mantenimiento programado — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2026","Hybrid Starter & Generator."),
+      ("maintenance","Bujías","Cada 150.000 km","", "Servicio de mantenimiento programado — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2026","Calendario normal europeo."),
+      ("maintenance","Líquido DCT","Sin comprobación ni mantenimiento en uso normal","", "Servicio de mantenimiento programado — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2026","No confundir con el líquido del actuador del embrague."),
+      ("maintenance","Actuador del embrague del motor","Inspección 15/45/75/105 mil km; sustitución 30/60/90/120 mil km","", "Servicio de mantenimiento programado — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2026","Patrón de la tabla europea."),
+      ("maintenance","Líquido de frenos","Inspección 15/45/75/105 mil km; sustitución 30/60/90/120 mil km","", "Servicio de mantenimiento programado — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2026","Patrón de la tabla europea."),
+      ("technical specifications","Código de motor","G4LL","", "Documento público de homologación Niro C5P11","https://www.gov.il/BlobFolder/policy/25-0737/he/25-0737.pdf","HOMOLOGACIÓN / FUENTE PÚBLICA","MEDIA","2025","2025","No es confirmación OEM; requiere cruce adicional con documentación de reparación.")
+    ]
+    c=db()
+    c.execute("DELETE FROM technical_records WHERE vehicle_id=?", (vehicle_id,))
+    for category,field,value,unit,title,url,source_class,confidence,af,at,notes in rows:
+        c.execute("""INSERT INTO technical_records
+          (vehicle_id,category,field,value,unit,source_title,source_url,source_class,confidence,applicable_from,applicable_to,notes,created_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+          (vehicle_id,category,field,value,unit,title,url,source_class,confidence,af,at,notes,now))
+    c.commit(); c.close()
+    meta_set("kia_niro_sg2_seed",seed_version)
+
+
 @app.on_event("startup")
 def startup():
     init_db()
     seed_verified_bmw_g20_320d()
     seed_verified_hyundai_kona_sx2_hev()
+    seed_verified_kia_niro_sg2_hev()
     seed_verified_hyundai_kona_sx2_hev_electrical()
     ensure_seed_vehicle()
     SYNC_STATE.update({"sync":"comprobando","count":count_vehicles(),"dataset":meta_get("dataset_version")})
@@ -739,6 +775,12 @@ def technical(vehicle_id:str, category:str=Query("")):
                     rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(fallback_id,)).fetchall()
             elif make=="hyundai" and "kona" in model and "sx2" in model:
                 fallback_id="car/hyundai/kona-sx2-hev-2025"
+                if category:
+                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
+                else:
+                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(fallback_id,)).fetchall()
+            elif make=="kia" and "niro" in model:
+                fallback_id="car/kia/niro-sg2-hev-2024"
                 if category:
                     rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
                 else:
