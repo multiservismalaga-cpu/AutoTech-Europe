@@ -64,6 +64,7 @@ def init_db():
       notes TEXT, created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_technical_vehicle_category ON technical_records(vehicle_id,category);
+    
     CREATE TABLE IF NOT EXISTS vehicle_variants(
       variant_id TEXT PRIMARY KEY,
       make TEXT NOT NULL,
@@ -183,6 +184,25 @@ def ensure_seed_variants():
         if target:
             c.execute("INSERT INTO vehicle_variant_map(vehicle_id,variant_id,match_method,confidence,created_at) VALUES(?,?,?,?,?) ON CONFLICT(vehicle_id) DO UPDATE SET variant_id=excluded.variant_id,match_method=excluded.match_method,confidence=excluded.confidence,created_at=excluded.created_at",
                       (row["id"],target,"catalog-explicit-model-signals","ALTA",now))
+    c.commit(); c.close()
+
+
+def ensure_technical_variant_links():
+    """Backfill explícito de technical_records hacia el perfil técnico canónico."""
+    c=db()
+    c.execute("""
+      UPDATE technical_records
+      SET variant_id=(
+        SELECT vvm.variant_id
+        FROM vehicle_variant_map vvm
+        WHERE vvm.vehicle_id=technical_records.vehicle_id
+      )
+      WHERE variant_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM vehicle_variant_map vvm
+          WHERE vvm.vehicle_id=technical_records.vehicle_id
+        )
+    """)
     c.commit(); c.close()
 
 
@@ -403,6 +423,7 @@ def refresh_database(force=True):
         ensure_seed_vehicle()
         ensure_seed_kia_niro_vehicle()
         ensure_seed_variants()
+        ensure_technical_variant_links()
         updated_at=datetime.now(timezone.utc).isoformat()
         meta_set("dataset_version",DATASET_VERSION)
         meta_set("dataset_updated_at",updated_at)
@@ -734,6 +755,7 @@ def startup():
     ensure_seed_vehicle()
     ensure_seed_kia_niro_vehicle()
     ensure_seed_variants()
+    ensure_technical_variant_links()
     SYNC_STATE.update({"sync":"comprobando","count":count_vehicles(),"dataset":meta_get("dataset_version")})
     meta_set("dataset_sync","comprobando")
     # Si existe una base antigua o incompleta, se fuerza una sincronización.
@@ -1091,10 +1113,19 @@ def technical(vehicle_id:str, category:str=Query("")):
     profile=find_technical_profile(vehicle_id,category)
     profile_id=profile.get("profile_vehicle_id") or vehicle_id
     c=db()
+    # La variante canónica es la clave primaria lógica de los datos técnicos.
+    # vehicle_id queda como fallback para registros heredados durante la migración.
+    variant_id=profile.get("variant_id") or profile_id
     if category:
-        rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(profile_id,category)).fetchall()
+        rows=c.execute(
+            "SELECT * FROM technical_records WHERE (variant_id=? OR (variant_id IS NULL AND vehicle_id=?)) AND category=? ORDER BY id",
+            (variant_id,profile_id,category)
+        ).fetchall()
     else:
-        rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(profile_id,)).fetchall()
+        rows=c.execute(
+            "SELECT * FROM technical_records WHERE (variant_id=? OR (variant_id IS NULL AND vehicle_id=?)) ORDER BY category,id",
+            (variant_id,profile_id)
+        ).fetchall()
     c.close()
     return [dict(r) for r in rows]
 
