@@ -98,6 +98,12 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_vehicle_variant_map_variant
       ON vehicle_variant_map(variant_id);
     """)
+    # Migración incremental de registros técnicos: variant_id es la referencia
+    # canónica; vehicle_id se conserva para compatibilidad con bases existentes.
+    cols={r["name"] for r in c.execute("PRAGMA table_info(technical_records)").fetchall()}
+    if "variant_id" not in cols:
+        c.execute("ALTER TABLE technical_records ADD COLUMN variant_id TEXT")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_technical_variant_category ON technical_records(variant_id,category)")
     c.commit(); c.close()
 
 def meta_get(key):
@@ -205,6 +211,24 @@ def ensure_technical_variant_links():
     """)
     c.commit(); c.close()
 
+
+def ensure_technical_variant_links():
+    """Backfill de registros existentes hacia la variante técnica canónica."""
+    c=db()
+    c.execute("""
+      UPDATE technical_records
+      SET variant_id=(
+        SELECT vvm.variant_id
+        FROM vehicle_variant_map vvm
+        WHERE vvm.vehicle_id=technical_records.vehicle_id
+      )
+      WHERE variant_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM vehicle_variant_map vvm
+          WHERE vvm.vehicle_id=technical_records.vehicle_id
+        )
+    """)
+    c.commit(); c.close()
 
 def get_vehicle_variant(vehicle_id):
     c=db()
