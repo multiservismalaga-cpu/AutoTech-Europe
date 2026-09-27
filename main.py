@@ -449,13 +449,16 @@ def ensure_seed_kia_niro_vehicle():
 
 def seed_verified_kia_niro_sg2_hev():
     vehicle_id = "car/kia/niro-sg2-hev-2024"
-    seed_version = "2"
+    seed_version = "3"
     ensure_seed_kia_niro_vehicle()
     if meta_get("kia_niro_sg2_seed") == seed_version:
         return
     now = datetime.now(timezone.utc).isoformat()
     rows = [
       ("torque","Tuercas de rueda","107–127","Nm","Neumáticos y ruedas — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter10_7.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2024","Par de apriete de las tuercas de rueda. El manual también lo expresa como 11–13 kgf·m / 79–94 lbf·ft."),
+      ("torque","Tornillo masa TCU (GC102)","7,8–9,8","Nm","TSB TRA106 — 6-Speed DCT judgement logic improvement / ground bolt tightening","https://static.nhtsa.gov/odi/tsbs/2023/MC-10231842-0001.pdf","TSB KIA / NHTSA","CONTRASTADO · TSB PÚBLICO","2023","2023","Niro P/HEV (SG2 P/HEV). Rango de producción afectado: 14/06/2022–12/12/2022. Usar como especificación del TSB para GC102; no generalizar fuera del procedimiento aplicable."),
+      ("torque","Tornillo masa actuador embrague (GC103)","9,8–11,8","Nm","TSB TRA106 — 6-Speed DCT judgement logic improvement / ground bolt tightening","https://static.nhtsa.gov/odi/tsbs/2023/MC-10231842-0001.pdf","TSB KIA / NHTSA","CONTRASTADO · TSB PÚBLICO","2023","2023","Niro P/HEV (SG2 P/HEV). Rango de producción afectado: 14/06/2022–12/12/2022. Usar como especificación del TSB para GC103; no generalizar fuera del procedimiento aplicable."),
+      ("torque","Tornillos superiores de carcasa EGR","3,9","Nm","TSB SC305 — EGR control valve pipe and hose replacement","https://static.nhtsa.gov/odi/tsbs/2024/MC-11006369-0001.pdf","TSB KIA / NHTSA","CONTRASTADO · TSB PÚBLICO","2024","2024","Niro P/HEV (SG2 P/HEV). Tres tornillos T-25; el TSB indica sustituir los tornillos retirados y aplicar 3,9 N·m al montaje."),
       ("technical specifications","Motor","Smartstream 1.6 GDi HEV","", "Kia Niro — especificaciones","https://www.kia.com/es/modelos/niro/descubrelo/","FABRICANTE / OEM","CONTRASTADO","2022","2026","Motor gasolina 1.6 GDI; sistema HEV."),
       ("technical specifications","Cilindrada","1580","cm³","El nuevo Kia Niro impulsa la movilidad sostenible","https://press.kia.com/es/es/home/notas-de-prensa/press-releases/2022/la-sostenibilidad-simplificada--el-nuevo-kia-niro-acelerara-la-t.html","FABRICANTE / OEM","CONTRASTADO","2022","2026","Cilindrada."),
       ("technical specifications","Potencia combinada","141","CV","El nuevo Kia Niro impulsa la movilidad sostenible","https://press.kia.com/es/es/home/notas-de-prensa/press-releases/2022/la-sostenibilidad-simplificada--el-nuevo-kia-niro-acelerara-la-t.html","FABRICANTE / OEM","CONTRASTADO","2022","2026","HEV: 141 CV."),
