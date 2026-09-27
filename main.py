@@ -98,6 +98,11 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_vehicle_variant_map_variant
       ON vehicle_variant_map(variant_id);
     """)
+    evidence_cols={r["name"] for r in c.execute("PRAGMA table_info(evidence)").fetchall()}
+    if "variant_id" not in evidence_cols:
+        c.execute("ALTER TABLE evidence ADD COLUMN variant_id TEXT")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_evidence_variant_category ON evidence(variant_id,category,query)")
+    
     # Migración incremental de registros técnicos: variant_id es la referencia
     # canónica; vehicle_id se conserva para compatibilidad con bases existentes.
     cols={r["name"] for r in c.execute("PRAGMA table_info(technical_records)").fetchall()}
@@ -190,6 +195,18 @@ def ensure_seed_variants():
         if target:
             c.execute("INSERT INTO vehicle_variant_map(vehicle_id,variant_id,match_method,confidence,created_at) VALUES(?,?,?,?,?) ON CONFLICT(vehicle_id) DO UPDATE SET variant_id=excluded.variant_id,match_method=excluded.match_method,confidence=excluded.confidence,created_at=excluded.created_at",
                       (row["id"],target,"catalog-explicit-model-signals","ALTA",now))
+    c.commit(); c.close()
+
+
+def ensure_evidence_variant_links():
+    """Backfill de evidencia existente hacia la variante técnica canónica."""
+    c=db()
+    c.execute("""
+      UPDATE evidence
+      SET variant_id=(SELECT vvm.variant_id FROM vehicle_variant_map vvm WHERE vvm.vehicle_id=evidence.vehicle_id)
+      WHERE variant_id IS NULL
+        AND EXISTS (SELECT 1 FROM vehicle_variant_map vvm WHERE vvm.vehicle_id=evidence.vehicle_id)
+    """)
     c.commit(); c.close()
 
 
@@ -448,6 +465,7 @@ def refresh_database(force=True):
         ensure_seed_kia_niro_vehicle()
         ensure_seed_variants()
         ensure_technical_variant_links()
+        ensure_evidence_variant_links()
         updated_at=datetime.now(timezone.utc).isoformat()
         meta_set("dataset_version",DATASET_VERSION)
         meta_set("dataset_updated_at",updated_at)
@@ -780,6 +798,7 @@ def startup():
     ensure_seed_kia_niro_vehicle()
     ensure_seed_variants()
     ensure_technical_variant_links()
+    ensure_evidence_variant_links()
     SYNC_STATE.update({"sync":"comprobando","count":count_vehicles(),"dataset":meta_get("dataset_version")})
     meta_set("dataset_sync","comprobando")
     # Si existe una base antigua o incompleta, se fuerza una sincronización.
@@ -1098,9 +1117,9 @@ def research(payload:dict):
         cached=c.execute(
             """SELECT title,url,domain,source_class,confidence,snippet,fetched_at
                FROM evidence
-               WHERE vehicle_id IS ? AND category=? AND query=?
+               WHERE variant_id IS ? AND category=? AND query=?
                ORDER BY id DESC LIMIT 20""",
-            (research_vehicle_id,category,query)
+            (variant.get("variant_id") if variant else None,category,query)
         ).fetchall()
         c.close()
         if cached:
@@ -1121,8 +1140,8 @@ def research(payload:dict):
     c=db()
     for item in results:
         c.execute(
-            "INSERT INTO evidence(vehicle_id,query,category,title,url,domain,source_class,confidence,snippet,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
-            (research_vehicle_id,query,category,item["title"],item["url"],urllib.parse.urlparse(item["url"]).netloc,
+            "INSERT INTO evidence(vehicle_id,variant_id,query,category,title,url,domain,source_class,confidence,snippet,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (research_vehicle_id,variant.get("variant_id") if variant else None,query,category,item["title"],item["url"],urllib.parse.urlparse(item["url"]).netloc,
              classify_source(item["url"]),"PENDIENTE DE CONTRASTE",item["snippet"],fetched_at)
         )
         item["source_class"]=classify_source(item["url"])
