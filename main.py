@@ -231,6 +231,7 @@ def seed_verified_hyundai_kona_sx2_hev():
         return
     now = datetime.now(timezone.utc).isoformat()
     rows = [
+      ("torque","Tuercas de rueda","107–127","Nm","Cambiar un neumático — KONA SX2 HEV 2025","https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/idde3c3d57812.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2025","2025","Par de apriete de las tuercas de rueda. El manual también lo expresa como 11–13 kgf·m / 79–94 lbf·ft."),
       ("technical specifications","Motor","1.6 GDi HEV","", "Nuevo Hyundai KONA — Características técnicas SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","CONTRASTADO","2025","2025","Ficha oficial Hyundai España."),
       ("technical specifications","Cilindrada","1580","cm³", "Nuevo Hyundai KONA — Características técnicas SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","CONTRASTADO","2025","2025","4 cilindros en línea."),
       ("technical specifications","Potencia combinada","141","CV", "Nuevo Hyundai KONA — Características técnicas SX2 HEV","https://www.hyundai.es/catalogo/nuevo-kona.pdf","FABRICANTE / OEM","CONTRASTADO","2025","2025","104 kW de potencia total combinada."),
@@ -454,6 +455,7 @@ def seed_verified_kia_niro_sg2_hev():
         return
     now = datetime.now(timezone.utc).isoformat()
     rows = [
+      ("torque","Tuercas de rueda","107–127","Nm","Neumáticos y ruedas — Niro SG2 2024","https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter10_7.html","FABRICANTE / OEM","CONTRASTADO · EUROPA","2024","2024","Par de apriete de las tuercas de rueda. El manual también lo expresa como 11–13 kgf·m / 79–94 lbf·ft."),
       ("technical specifications","Motor","Smartstream 1.6 GDi HEV","", "Kia Niro — especificaciones","https://www.kia.com/es/modelos/niro/descubrelo/","FABRICANTE / OEM","CONTRASTADO","2022","2026","Motor gasolina 1.6 GDI; sistema HEV."),
       ("technical specifications","Cilindrada","1580","cm³","El nuevo Kia Niro impulsa la movilidad sostenible","https://press.kia.com/es/es/home/notas-de-prensa/press-releases/2022/la-sostenibilidad-simplificada--el-nuevo-kia-niro-acelerara-la-t.html","FABRICANTE / OEM","CONTRASTADO","2022","2026","Cilindrada."),
       ("technical specifications","Potencia combinada","141","CV","El nuevo Kia Niro impulsa la movilidad sostenible","https://press.kia.com/es/es/home/notas-de-prensa/press-releases/2022/la-sostenibilidad-simplificada--el-nuevo-kia-niro-acelerara-la-t.html","FABRICANTE / OEM","CONTRASTADO","2022","2026","HEV: 141 CV."),
