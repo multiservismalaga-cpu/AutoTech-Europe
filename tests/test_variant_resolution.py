@@ -98,6 +98,13 @@ class VariantResolutionRegression(unittest.TestCase):
         r = main.resolve_variant_signals({"engine_code": "G4LL"})
         self.assertIsNone(r)
 
+    def test_shared_engine_code_with_make_but_no_model_stays_ambiguous(self):
+        r = main.resolve_variant_signals({
+            "make": "Hyundai",
+            "engine_code": "G4LL",
+        })
+        self.assertIsNone(r)
+
     def test_conflicting_make_and_model_does_not_cross_match(self):
         r = main.resolve_variant_signals({
             "make": "Kia",
