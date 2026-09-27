@@ -182,6 +182,67 @@ def get_vehicle_variant(vehicle_id):
     c.close()
     return dict(row) if row else None
 
+def resolve_variant_signals(signals):
+    """Resuelve una variante solo cuando las señales disponibles son compatibles."""
+    make=normalize(signals.get("make"))
+    model=normalize(signals.get("model"))
+    engine=normalize(signals.get("engine"))
+    engine_code=normalize(signals.get("engine_code"))
+    transmission=normalize(signals.get("transmission"))
+    drive=normalize(signals.get("drive"))
+    fuel=normalize(signals.get("fuel"))
+    market=normalize(signals.get("market"))
+    try: year=int(str(signals.get("year") or "").strip())
+    except Exception: year=None
+    c=db()
+    rows=c.execute("SELECT * FROM vehicle_variants").fetchall()
+    c.close()
+    ranked=[]
+    for row in rows:
+        score=0
+        conflicts=0
+        rmake=normalize(row["make"]); rmodel=normalize(row["model"])
+        if make:
+            if make==rmake: score+=5
+            else: conflicts+=3
+        if model:
+            if model==rmodel or model in rmodel or rmodel in model: score+=5
+            else: conflicts+=3
+        if engine_code:
+            if engine_code==normalize(row["engine_code"]): score+=8
+            elif engine_code not in normalize(row["engine_code"]): conflicts+=2
+        if engine:
+            ef=normalize(row["engine_family"])
+            if engine==ef or engine in ef or ef in engine: score+=5
+        if transmission:
+            rt=normalize(row["transmission"])
+            if transmission==rt or transmission in rt or rt in transmission: score+=3
+        if drive:
+            if drive==normalize(row["drive"]): score+=3
+        if fuel:
+            if fuel==normalize(row["fuel"]): score+=2
+        if market:
+            if market==normalize(row["market"]) or market in normalize(row["market"]): score+=1
+        if year:
+            try:
+                yf=int(row["year_from"]); yt=int(row["year_to"])
+                if yf<=year<=yt: score+=3
+                else: conflicts+=2
+            except Exception: pass
+        if score>=10 and conflicts<4:
+            ranked.append((score,conflicts,dict(row)))
+    ranked.sort(key=lambda x:(-x[0],x[1]))
+    if not ranked:
+        return None
+    best=ranked[0]
+    if len(ranked)>1 and best[0]==ranked[1][0] and best[1]==ranked[1][1]:
+        return None
+    result=best[2]
+    result["resolution_score"]=best[0]
+    result["resolution_conflicts"]=best[1]
+    result["resolution_method"]="VIN / señales públicas"
+    return result
+
 def vehicle_variant_context(vehicle_id):
     c=db()
     v=c.execute("SELECT * FROM vehicles WHERE id=?",(vehicle_id,)).fetchone()
@@ -799,6 +860,24 @@ def decode_vin_public(vin):
         if value and value.upper() not in {"NOT APPLICABLE","NOT REPORTED","UNKNOWN","0"}:
             data.append({"field":label,"value":value})
     crosscheck = decode_hyundai_vin_crosscheck(vin)
+    signals={
+        "make":row.get("Make"),"model":row.get("Model"),"year":row.get("ModelYear"),
+        "engine":row.get("EngineModel"),"engine_code":row.get("EngineModel"),
+        "transmission":row.get("TransmissionStyle"),"drive":row.get("DriveType"),
+        "fuel":row.get("FuelTypePrimary")
+    }
+    if crosscheck:
+        signals.update({
+            "make":crosscheck.get("manufacturer","Hyundai"),
+            "model":crosscheck.get("model"),
+            "year":crosscheck.get("model_year"),
+            "engine":crosscheck.get("engine"),
+            "engine_code":crosscheck.get("engine_code"),
+            "transmission":crosscheck.get("transmission"),
+            "drive":crosscheck.get("drive"),
+            "fuel":crosscheck.get("fuel")
+        })
+    technical_variant=resolve_variant_signals(signals)
     return {
         "ok":True,
         "vin":vin,
@@ -811,7 +890,8 @@ def decode_vin_public(vin):
         "year_code":vin[9],
         "results":data,
         "raw_count":len(results),
-        "crosscheck":crosscheck
+        "crosscheck":crosscheck,
+        "technical_variant":technical_variant
     }
 
 @app.get("/api/vin/decode/{vin}")
@@ -1003,6 +1083,21 @@ def technical(vehicle_id:str, category:str=Query("")):
     c.close()
     return [dict(r) for r in rows]
 
+
+@app.get("/api/variant/resolve")
+def resolve_variant(
+    make:str=Query(""), model:str=Query(""), year:str=Query(""),
+    engine:str=Query(""), engine_code:str=Query(""), transmission:str=Query(""),
+    drive:str=Query(""), fuel:str=Query(""), market:str=Query("")
+):
+    result=resolve_variant_signals({
+        "make":make,"model":model,"year":year,"engine":engine,
+        "engine_code":engine_code,"transmission":transmission,
+        "drive":drive,"fuel":fuel,"market":market
+    })
+    if not result:
+        return JSONResponse({"ok":False,"error":"No hay una variante técnica suficientemente determinada con estas señales."},status_code=404)
+    return {"ok":True,"variant":result}
 
 @app.get("/api/variant/{vehicle_id:path}")
 def variant(vehicle_id:str):
