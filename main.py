@@ -64,6 +64,38 @@ def init_db():
       notes TEXT, created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_technical_vehicle_category ON technical_records(vehicle_id,category);
+    CREATE TABLE IF NOT EXISTS vehicle_variants(
+      variant_id TEXT PRIMARY KEY,
+      make TEXT NOT NULL,
+      model TEXT NOT NULL,
+      generation TEXT,
+      engine_family TEXT,
+      engine_code TEXT,
+      transmission TEXT,
+      drive TEXT,
+      fuel TEXT,
+      market TEXT,
+      year_from TEXT,
+      year_to TEXT,
+      variant_key TEXT NOT NULL,
+      source_class TEXT,
+      confidence TEXT,
+      source_url TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_vehicle_variants_lookup
+      ON vehicle_variants(make,model,engine_code,transmission,drive,market);
+    CREATE TABLE IF NOT EXISTS vehicle_variant_map(
+      vehicle_id TEXT PRIMARY KEY,
+      variant_id TEXT NOT NULL,
+      match_method TEXT NOT NULL,
+      confidence TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(variant_id) REFERENCES vehicle_variants(variant_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_vehicle_variant_map_variant
+      ON vehicle_variant_map(variant_id);
     """)
     c.commit(); c.close()
 
@@ -82,6 +114,73 @@ def variant_key(make="", model="", year="", engine="", transmission="", drive=""
     parts=[normalize(make),normalize(model),normalize(engine),normalize(transmission),normalize(drive),normalize(market)]
     y=str(year or "").strip()
     return "|".join(parts+[y])
+
+
+def ensure_seed_variants():
+    """Registra perfiles técnicos canónicos y los relaciona con vehículos concretos."""
+    now=datetime.now(timezone.utc).isoformat()
+    variants=[
+      {
+        "variant_id":"car/bmw/3-series-320d","make":"BMW","model":"3 Series 320d",
+        "generation":"G20","engine_family":"2.0 Diesel","engine_code":"B47D20O1",
+        "transmission":"Automática","drive":"RWD","fuel":"Diésel","market":"ES/EU",
+        "year_from":"2018","year_to":"2020","source_class":"FABRICANTE / OEM",
+        "confidence":"CONTRASTADO","source_url":"https://www.press.bmwgroup.com/spain/",
+        "notes":"Perfil técnico limitado a los registros BMW actualmente contrastados."
+      },
+      {
+        "variant_id":"car/hyundai/kona-sx2-hev-2025","make":"Hyundai","model":"KONA SX2 HEV",
+        "generation":"SX2","engine_family":"1.6 GDi HEV","engine_code":"G4LL",
+        "transmission":"DCT 6","drive":"FWD","fuel":"Gasolina híbrido","market":"ES/EU",
+        "year_from":"2025","year_to":"2025","source_class":"FABRICANTE / OEM",
+        "confidence":"CONTRASTADO · EUROPA","source_url":"https://ownersmanual.hyundai.com/",
+        "notes":"Perfil técnico canónico del KONA SX2 HEV; el cruce G4LL conserva su alcance declarado."
+      },
+      {
+        "variant_id":"car/kia/niro-sg2-hev-2024","make":"Kia","model":"Niro SG2 HEV",
+        "generation":"SG2","engine_family":"Smartstream 1.6 GDi HEV","engine_code":"G4LL",
+        "transmission":"DCT 6","drive":"FWD","fuel":"Gasolina híbrido","market":"ES/EU",
+        "year_from":"2024","year_to":"2026","source_class":"FABRICANTE / OEM + FUENTE PÚBLICA",
+        "confidence":"CONTRASTADO · EUROPA","source_url":"https://ownersmanual.kia.com/full_webhelp/SG2/2024/es_ES/topics/chapter9_4.html",
+        "notes":"G4LL procede de homologación pública y no se presenta como confirmación OEM."
+      }
+    ]
+    c=db()
+    for v in variants:
+        key=variant_key(v["make"],v["model"],v["year_from"],v["engine_code"],v["transmission"],v["drive"],v["market"])
+        c.execute("""INSERT INTO vehicle_variants
+          (variant_id,make,model,generation,engine_family,engine_code,transmission,drive,fuel,market,
+           year_from,year_to,variant_key,source_class,confidence,source_url,notes,created_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(variant_id) DO UPDATE SET
+            make=excluded.make,model=excluded.model,generation=excluded.generation,
+            engine_family=excluded.engine_family,engine_code=excluded.engine_code,
+            transmission=excluded.transmission,drive=excluded.drive,fuel=excluded.fuel,
+            market=excluded.market,year_from=excluded.year_from,year_to=excluded.year_to,
+            variant_key=excluded.variant_key,source_class=excluded.source_class,
+            confidence=excluded.confidence,source_url=excluded.source_url,
+            notes=excluded.notes""",
+          (v["variant_id"],v["make"],v["model"],v["generation"],v["engine_family"],v["engine_code"],
+           v["transmission"],v["drive"],v["fuel"],v["market"],v["year_from"],v["year_to"],key,
+           v["source_class"],v["confidence"],v["source_url"],v["notes"],now))
+        c.execute("""INSERT INTO vehicle_variant_map
+          (vehicle_id,variant_id,match_method,confidence,created_at)
+          VALUES(?,?,?,?,?)
+          ON CONFLICT(vehicle_id) DO UPDATE SET
+            variant_id=excluded.variant_id,match_method=excluded.match_method,
+            confidence=excluded.confidence,created_at=excluded.created_at""",
+          (v["variant_id"],v["variant_id"],"canonical-profile","CONTRASTADO",now))
+    c.commit(); c.close()
+
+
+def get_vehicle_variant(vehicle_id):
+    c=db()
+    row=c.execute("""SELECT vv.*, vvm.match_method, vvm.confidence AS match_confidence
+                     FROM vehicle_variant_map vvm
+                     JOIN vehicle_variants vv ON vv.variant_id=vvm.variant_id
+                     WHERE vvm.vehicle_id=?""",(vehicle_id,)).fetchone()
+    c.close()
+    return dict(row) if row else None
 
 def vehicle_variant_context(vehicle_id):
     c=db()
@@ -105,11 +204,21 @@ def find_technical_profile(vehicle_id, category=""):
     if not ctx:
         return {"profile_vehicle_id":None,"match":"none","reason":"vehicle_not_found"}
     c=db()
+    mapped=c.execute("""SELECT variant_id,match_method,confidence
+                       FROM vehicle_variant_map WHERE vehicle_id=?""",(vehicle_id,)).fetchone()
+    if mapped:
+        profile=mapped["variant_id"]
+        n=c.execute("SELECT COUNT(*) n FROM technical_records WHERE vehicle_id=?"+(" AND category=?" if category else ""),
+                    (profile,category) if category else (profile,)).fetchone()["n"]
+        if n:
+            c.close()
+            return {"profile_vehicle_id":profile,"variant_id":profile,"match":mapped["match_method"],
+                    "confidence":mapped["confidence"],"reason":"vehicle_variant_map"}
     exact_sql="SELECT COUNT(*) n FROM technical_records WHERE vehicle_id=?"
     exact=c.execute(exact_sql,(vehicle_id,)).fetchone()["n"]
     if exact:
         c.close()
-        return {"profile_vehicle_id":vehicle_id,"match":"exact","reason":"exact_technical_records"}
+        return {"profile_vehicle_id":vehicle_id,"variant_id":vehicle_id,"match":"exact","reason":"exact_technical_records"}
     make=normalize(ctx["make"]); model=normalize(ctx["model"])
     # Solo reutilizamos perfiles cuando la regla de familia está declarada.
     family_rules=[
@@ -217,6 +326,7 @@ def refresh_database(force=True):
         c.commit(); c.close()
         ensure_seed_vehicle()
         ensure_seed_kia_niro_vehicle()
+        ensure_seed_variants()
         updated_at=datetime.now(timezone.utc).isoformat()
         meta_set("dataset_version",DATASET_VERSION)
         meta_set("dataset_updated_at",updated_at)
@@ -547,6 +657,7 @@ def startup():
     seed_verified_hyundai_kona_sx2_hev_electrical()
     ensure_seed_vehicle()
     ensure_seed_kia_niro_vehicle()
+    ensure_seed_variants()
     SYNC_STATE.update({"sync":"comprobando","count":count_vehicles(),"dataset":meta_get("dataset_version")})
     meta_set("dataset_sync","comprobando")
     # Si existe una base antigua o incompleta, se fuerza una sincronización.
@@ -823,7 +934,12 @@ def research(payload:dict):
     # Cuando existe un perfil común, normalizamos también la consulta al nombre
     # canónico de ese perfil; así "Niro SG2", "Niro HEV" y variantes equivalentes
     # no generan cachés separados por simple diferencia de nomenclatura.
-    if profile.get("profile_vehicle_id") and profile.get("match")=="family":
+    variant=get_vehicle_variant(research_vehicle_id) if research_vehicle_id else None
+    if variant:
+        query=" ".join(x for x in [variant.get("make"),variant.get("model"),variant.get("generation"),
+                                   variant.get("engine_family"),variant.get("engine_code"),
+                                   variant.get("transmission"),variant.get("drive"),variant.get("market"),term] if x)
+    elif profile.get("profile_vehicle_id") and profile.get("match")=="family":
         pctx=vehicle_variant_context(research_vehicle_id) or {}
         query=" ".join(x for x in [pctx.get("make"),pctx.get("model"),term] if x)
     else:
@@ -877,24 +993,27 @@ def research(payload:dict):
 
 @app.get("/api/technical/{vehicle_id:path}")
 def technical(vehicle_id:str, category:str=Query("")):
+    profile=find_technical_profile(vehicle_id,category)
+    profile_id=profile.get("profile_vehicle_id") or vehicle_id
     c=db()
     if category:
-        rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(vehicle_id,category)).fetchall()
+        rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(profile_id,category)).fetchall()
     else:
-        rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(vehicle_id,)).fetchall()
-
+        rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(profile_id,)).fetchall()
     c.close()
-    if not rows:
-        profile=find_technical_profile(vehicle_id,category)
-        fallback_id=profile.get("profile_vehicle_id")
-        if fallback_id and fallback_id != vehicle_id:
-            c=db()
-            if category:
-                rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
-            else:
-                rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(fallback_id,)).fetchall()
-            c.close()
     return [dict(r) for r in rows]
+
+
+@app.get("/api/variant/{vehicle_id:path}")
+def variant(vehicle_id:str):
+    profile=find_technical_profile(vehicle_id)
+    variant_id=profile.get("profile_vehicle_id")
+    data=get_vehicle_variant(vehicle_id)
+    if not data and variant_id:
+        data=get_vehicle_variant(variant_id)
+    if not data:
+        return JSONResponse({"error":"Variante técnica no resuelta"},status_code=404)
+    return data
 
 @app.get("/api/evidence")
 def evidence(limit:int=Query(50,ge=1,le=200)):
