@@ -65,6 +65,22 @@ def init_db():
     );
     CREATE INDEX IF NOT EXISTS idx_technical_vehicle_category ON technical_records(vehicle_id,category);
     
+    CREATE TABLE IF NOT EXISTS source_documents(
+      document_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      variant_id TEXT,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      source_class TEXT,
+      publisher TEXT,
+      document_type TEXT,
+      language TEXT,
+      revision TEXT,
+      retrieved_at TEXT,
+      notes TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_source_documents_variant
+      ON source_documents(variant_id);
+
     CREATE TABLE IF NOT EXISTS vehicle_variants(
       variant_id TEXT PRIMARY KEY,
       make TEXT NOT NULL,
@@ -101,7 +117,14 @@ def init_db():
     evidence_cols={r["name"] for r in c.execute("PRAGMA table_info(evidence)").fetchall()}
     if "variant_id" not in evidence_cols:
         c.execute("ALTER TABLE evidence ADD COLUMN variant_id TEXT")
+    if "document_id" not in evidence_cols:
+        c.execute("ALTER TABLE evidence ADD COLUMN document_id INTEGER")
+    if "document_section" not in evidence_cols:
+        c.execute("ALTER TABLE evidence ADD COLUMN document_section TEXT")
+    if "applicability" not in evidence_cols:
+        c.execute("ALTER TABLE evidence ADD COLUMN applicability TEXT")
     c.execute("CREATE INDEX IF NOT EXISTS idx_evidence_variant_category ON evidence(variant_id,category,query)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_evidence_document ON evidence(document_id)")
     
     # Migración incremental de registros técnicos: variant_id es la referencia
     # canónica; vehicle_id se conserva para compatibilidad con bases existentes.
@@ -196,6 +219,29 @@ def ensure_seed_variants():
             c.execute("INSERT INTO vehicle_variant_map(vehicle_id,variant_id,match_method,confidence,created_at) VALUES(?,?,?,?,?) ON CONFLICT(vehicle_id) DO UPDATE SET variant_id=excluded.variant_id,match_method=excluded.match_method,confidence=excluded.confidence,created_at=excluded.created_at",
                       (row["id"],target,"catalog-explicit-model-signals","ALTA",now))
     c.commit(); c.close()
+
+
+def ensure_source_document(title,url,variant_id=None,source_class=None):
+    """Registra de forma idempotente el documento fuente, sin inventar sección/aplicabilidad."""
+    if not url:
+        return None
+    c=db()
+    row=c.execute(
+        "SELECT document_id FROM source_documents WHERE variant_id IS ? AND url=? ORDER BY document_id DESC LIMIT 1",
+        (variant_id,url)
+    ).fetchone()
+    if row:
+        c.close()
+        return row["document_id"]
+    now=datetime.now(timezone.utc).isoformat()
+    c.execute(
+        """INSERT INTO source_documents(variant_id,title,url,source_class,retrieved_at)
+           VALUES(?,?,?,?,?)""",
+        (variant_id,title,url,source_class,now)
+    )
+    did=c.execute("SELECT last_insert_rowid()").fetchone()[0]
+    c.commit(); c.close()
+    return did
 
 
 def ensure_evidence_variant_links():
@@ -1139,10 +1185,13 @@ def research(payload:dict):
     fetched_at=now.isoformat()
     c=db()
     for item in results:
+        variant_id=variant.get("variant_id") if variant else None
+        source_class=classify_source(item["url"])
+        document_id=ensure_source_document(item["title"],item["url"],variant_id,source_class)
         c.execute(
-            "INSERT INTO evidence(vehicle_id,variant_id,query,category,title,url,domain,source_class,confidence,snippet,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-            (research_vehicle_id,variant.get("variant_id") if variant else None,query,category,item["title"],item["url"],urllib.parse.urlparse(item["url"]).netloc,
-             classify_source(item["url"]),"PENDIENTE DE CONTRASTE",item["snippet"],fetched_at)
+            "INSERT INTO evidence(vehicle_id,variant_id,query,category,title,url,domain,source_class,confidence,snippet,fetched_at,document_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            (research_vehicle_id,variant_id,query,category,item["title"],item["url"],urllib.parse.urlparse(item["url"]).netloc,
+             source_class,"PENDIENTE DE CONTRASTE",item["snippet"],fetched_at,document_id)
         )
         item["source_class"]=classify_source(item["url"])
         item["confidence"]="PENDIENTE DE CONTRASTE"
