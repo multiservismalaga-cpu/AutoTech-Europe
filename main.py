@@ -164,6 +164,7 @@ def refresh_database(force=True):
             )
         c.commit(); c.close()
         ensure_seed_vehicle()
+        ensure_seed_kia_niro_vehicle()
         updated_at=datetime.now(timezone.utc).isoformat()
         meta_set("dataset_version",DATASET_VERSION)
         meta_set("dataset_updated_at",updated_at)
@@ -421,9 +422,34 @@ def search_web(query,limit=8):
     return out
 
 
+def ensure_seed_kia_niro_vehicle():
+    # El catálogo VehiclesDB se refresca desde cero. Esta entrada garantiza
+    # que el perfil técnico contrastado del Niro siga siendo seleccionable
+    # aunque el catálogo abierto no incluya exactamente esta variante.
+    vehicle_id = "car/kia/niro-sg2-hev-2024"
+    c = db()
+    row = c.execute("SELECT 1 FROM vehicles WHERE id=?", (vehicle_id,)).fetchone()
+    if not row:
+        raw = {
+            "id": vehicle_id,
+            "name": "Niro SG2 HEV",
+            "body_types": ["SUV"],
+            "years": "2022–2026",
+            "source": "Kia public documentation"
+        }
+        c.execute("""INSERT OR REPLACE INTO vehicles
+          (id,make,model,kind,body_types,years,availability,popularity,sources,raw_json)
+          VALUES(?,?,?,?,?,?,?,?,?,?)""",
+          (vehicle_id,"Kia","Niro SG2 HEV","car","SUV","2022–2026",
+           "[\"ES\",\"EU\"]","verified-seed",
+           "Kia public documentation",json.dumps(raw,ensure_ascii=False)))
+        c.commit()
+    c.close()
+
 def seed_verified_kia_niro_sg2_hev():
     vehicle_id = "car/kia/niro-sg2-hev-2024"
     seed_version = "1"
+    ensure_seed_kia_niro_vehicle()
     if meta_get("kia_niro_sg2_seed") == seed_version:
         return
     now = datetime.now(timezone.utc).isoformat()
@@ -463,6 +489,7 @@ def startup():
     seed_verified_kia_niro_sg2_hev()
     seed_verified_hyundai_kona_sx2_hev_electrical()
     ensure_seed_vehicle()
+    ensure_seed_kia_niro_vehicle()
     SYNC_STATE.update({"sync":"comprobando","count":count_vehicles(),"dataset":meta_get("dataset_version")})
     meta_set("dataset_sync","comprobando")
     # Si existe una base antigua o incompleta, se fuerza una sincronización.
