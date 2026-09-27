@@ -317,6 +317,20 @@ def resolve_variant_signals(signals):
     c=db()
     rows=c.execute("SELECT * FROM vehicle_variants").fetchall()
     c.close()
+
+    # Un código de motor compartido no basta para elegir una variante si
+    # tampoco conocemos el modelo. Por ejemplo, G4LL aparece en KONA y Niro.
+    # Permitimos resolver por código cuando las señales disponibles dejan una
+    # sola variante compatible; si el código sigue siendo ambiguo, no elegimos.
+    if engine_code and not model:
+        shared = [
+            row for row in rows
+            if engine_code == normalize(row["engine_code"])
+            and (not make or make == normalize(row["make"]))
+        ]
+        if len({row["variant_id"] for row in shared}) > 1:
+            return None
+
     ranked=[]
     for row in rows:
         score=0
