@@ -242,7 +242,7 @@ function renderVinDecode(data) {
       techButton.onclick = async () => {
         showStatus("Cargando ficha técnica contrastada…");
         try {
-          const tech = await api("/api/technical/" + encodeURIComponent(tv?.variant_id || "car/hyundai/kona-sx2-hev-2025"));
+          if (!tv?.variant_id) { showStatus("VIN identificado, pero no hay una variante técnica resuelta; no se reutiliza ninguna ficha."); return; }\n          const tech = await api("/api/technical/" + encodeURIComponent(tv.variant_id));
           const rows = tech.map(x => "<div class=\"vin-row\"><b>" + esc(x.category + " · " + x.field) + "</b><span>" + esc((x.value || "") + (x.unit ? " " + x.unit : "")) + "</span></div>").join("");
           box.innerHTML += "<section class=\"card\"><div class=\"eyebrow\">FICHA TÉCNICA CONTRASTADA</div><div class=\"vin-grid\">" + rows + "</div><p class=\"small\">Cada dato incluye fuente OEM y estado de contraste en la base técnica.</p></section>";
           showStatus(tech.length + " datos técnicos contrastados cargados");
