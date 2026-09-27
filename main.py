@@ -77,6 +77,57 @@ def meta_set(key,value):
 def normalize(value):
     return re.sub(r"[^a-z0-9]+"," ",(value or "").lower()).strip()
 
+def variant_key(make="", model="", year="", engine="", transmission="", drive="", market=""):
+    """Normaliza señales de variante para agrupar vehículos técnicamente compatibles."""
+    parts=[normalize(make),normalize(model),normalize(engine),normalize(transmission),normalize(drive),normalize(market)]
+    y=str(year or "").strip()
+    return "|".join(parts+[y])
+
+def vehicle_variant_context(vehicle_id):
+    c=db()
+    v=c.execute("SELECT * FROM vehicles WHERE id=?",(vehicle_id,)).fetchone()
+    c.close()
+    if not v:
+        return None
+    raw={}
+    try: raw=json.loads(v["raw_json"] or "{}")
+    except Exception: pass
+    return {
+        "vehicle_id":vehicle_id,
+        "make":v["make"],"model":v["model"],"years":v["years"],
+        "body_types":v["body_types"],"availability":v["availability"],
+        "raw":raw
+    }
+
+def find_technical_profile(vehicle_id, category=""):
+    """Busca primero el vehículo exacto y después perfiles explícitos de familia/variante."""
+    ctx=vehicle_variant_context(vehicle_id)
+    if not ctx:
+        return {"profile_vehicle_id":None,"match":"none","reason":"vehicle_not_found"}
+    c=db()
+    exact_sql="SELECT COUNT(*) n FROM technical_records WHERE vehicle_id=?"
+    exact=c.execute(exact_sql,(vehicle_id,)).fetchone()["n"]
+    if exact:
+        c.close()
+        return {"profile_vehicle_id":vehicle_id,"match":"exact","reason":"exact_technical_records"}
+    make=normalize(ctx["make"]); model=normalize(ctx["model"])
+    # Solo reutilizamos perfiles cuando la regla de familia está declarada.
+    family_rules=[
+        ("kia","niro","car/kia/niro-sg2-hev-2024"),
+        ("hyundai","kona","car/hyundai/kona-sx2-hev-2025"),
+        ("bmw","3 series 320d","car/bmw/3-series-320d")
+    ]
+    for rule_make,rule_model,profile in family_rules:
+        if make==rule_make and rule_model in model:
+            n=c.execute("SELECT COUNT(*) n FROM technical_records WHERE vehicle_id=?"+(" AND category=?" if category else ""),
+                        (profile,category) if category else (profile,)).fetchone()["n"]
+            if n:
+                c.close()
+                return {"profile_vehicle_id":profile,"match":"family","reason":"declared_family_profile"}
+    c.close()
+    return {"profile_vehicle_id":None,"match":"none","reason":"no_verified_profile"}
+
+
 def parse_dataset(payload):
     rows=[]
     def add(make,obj,kind="car"):
@@ -819,32 +870,17 @@ def technical(vehicle_id:str, category:str=Query("")):
     else:
         rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(vehicle_id,)).fetchall()
 
-    # El ID del catálogo y el ID técnico pueden ser distintos. Solo usamos
-    # el perfil BMW G20 320d cuando el vehículo seleccionado coincide realmente.
-    if not rows:
-        v=c.execute("SELECT make,model FROM vehicles WHERE id=?",(vehicle_id,)).fetchone()
-        if v:
-            make=normalize(v["make"])
-            model=normalize(v["model"])
-            if make=="bmw" and "320d" in model and "3 series" in model:
-                fallback_id="car/bmw/3-series-320d"
-                if category:
-                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
-                else:
-                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(fallback_id,)).fetchall()
-            elif make=="hyundai" and "kona" in model and "sx2" in model:
-                fallback_id="car/hyundai/kona-sx2-hev-2025"
-                if category:
-                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
-                else:
-                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(fallback_id,)).fetchall()
-            elif make=="kia" and "niro" in model:
-                fallback_id="car/kia/niro-sg2-hev-2024"
-                if category:
-                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
-                else:
-                    rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(fallback_id,)).fetchall()
     c.close()
+    if not rows:
+        profile=find_technical_profile(vehicle_id,category)
+        fallback_id=profile.get("profile_vehicle_id")
+        if fallback_id and fallback_id != vehicle_id:
+            c=db()
+            if category:
+                rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? AND category=? ORDER BY id",(fallback_id,category)).fetchall()
+            else:
+                rows=c.execute("SELECT * FROM technical_records WHERE vehicle_id=? ORDER BY category,id",(fallback_id,)).fetchall()
+            c.close()
     return [dict(r) for r in rows]
 
 @app.get("/api/evidence")
