@@ -274,6 +274,19 @@ def ensure_technical_variant_links():
     """)
     c.commit(); c.close()
 
+def ensure_technical_source_documents():
+    """Registra los documentos fuente declarados por los registros técnicos, sin inventar metadatos."""
+    c=db()
+    rows=c.execute("""
+      SELECT DISTINCT variant_id, source_title, source_url, source_class
+      FROM technical_records
+      WHERE variant_id IS NOT NULL AND source_url IS NOT NULL AND source_url <> ''
+    """).fetchall()
+    c.close()
+    for row in rows:
+        ensure_source_document(row["source_title"], row["source_url"], row["variant_id"], row["source_class"])
+
+
 def get_vehicle_variant(vehicle_id):
     c=db()
     row=c.execute("""SELECT vv.*, vvm.match_method, vvm.confidence AS match_confidence
@@ -843,6 +856,7 @@ def startup():
     ensure_seed_kia_niro_vehicle()
     ensure_seed_variants()
     ensure_technical_variant_links()
+    ensure_technical_source_documents()
     ensure_evidence_variant_links()
     SYNC_STATE.update({"sync":"comprobando","count":count_vehicles(),"dataset":meta_get("dataset_version")})
     meta_set("dataset_sync","comprobando")
@@ -1209,16 +1223,46 @@ def technical(vehicle_id:str, category:str=Query("")):
     variant_id=profile.get("variant_id") or profile_id
     if category:
         rows=c.execute(
-            "SELECT * FROM technical_records WHERE (variant_id=? OR (variant_id IS NULL AND vehicle_id=?)) AND category=? ORDER BY id",
+            """SELECT tr.*,
+                      sd.document_id AS source_document_id,
+                      sd.title AS document_title,
+                      sd.url AS document_url,
+                      sd.source_class AS document_source_class,
+                      sd.publisher AS document_publisher,
+                      sd.document_type AS document_type,
+                      sd.language AS document_language,
+                      sd.revision AS document_revision,
+                      sd.retrieved_at AS document_retrieved_at
+               FROM technical_records tr
+               LEFT JOIN source_documents sd
+                 ON sd.variant_id=tr.variant_id AND sd.url=tr.source_url
+               WHERE (tr.variant_id=? OR (tr.variant_id IS NULL AND tr.vehicle_id=?))
+                 AND tr.category=?
+               ORDER BY tr.id""",
             (variant_id,profile_id,category)
         ).fetchall()
     else:
         rows=c.execute(
-            "SELECT * FROM technical_records WHERE (variant_id=? OR (variant_id IS NULL AND vehicle_id=?)) ORDER BY category,id",
+            """SELECT tr.*,
+                      sd.document_id AS source_document_id,
+                      sd.title AS document_title,
+                      sd.url AS document_url,
+                      sd.source_class AS document_source_class,
+                      sd.publisher AS document_publisher,
+                      sd.document_type AS document_type,
+                      sd.language AS document_language,
+                      sd.revision AS document_revision,
+                      sd.retrieved_at AS document_retrieved_at
+               FROM technical_records tr
+               LEFT JOIN source_documents sd
+                 ON sd.variant_id=tr.variant_id AND sd.url=tr.source_url
+               WHERE (tr.variant_id=? OR (tr.variant_id IS NULL AND tr.vehicle_id=?))
+               ORDER BY tr.category,tr.id""",
             (variant_id,profile_id)
         ).fetchall()
     c.close()
     return [dict(r) for r in rows]
+
 
 
 @app.get("/api/variant/resolve")
