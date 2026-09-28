@@ -143,6 +143,54 @@ class VariantResolutionRegression(unittest.TestCase):
         c.close()
         self.assertEqual(row["variant_id"], "car/kia/niro-sg2-hev-2024")
 
+    def test_evidence_exposes_source_document_metadata(self):
+        document_id = main.ensure_source_document(
+            "Kia Niro SG2 technical manual",
+            "https://example.invalid/kia-niro-manual",
+            "car/kia/niro-sg2-hev-2024",
+            "TEST",
+        )
+        c = main.db()
+        c.execute(
+            """UPDATE source_documents
+               SET publisher=?, document_type=?, language=?, revision=?
+               WHERE document_id=?""",
+            ("Kia", "manual", "es-ES", "2024-01", document_id),
+        )
+        c.execute(
+            """INSERT INTO evidence(
+                 vehicle_id,variant_id,query,category,title,url,domain,source_class,
+                 confidence,snippet,fetched_at,document_id,document_section,applicability
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "test/kia-niro-sg2-hev",
+                "car/kia/niro-sg2-hev-2024",
+                "Niro SG2 HEV torque",
+                "torque",
+                "Kia source",
+                "https://example.invalid/kia-niro",
+                "example.invalid",
+                "TEST",
+                "PENDIENTE DE CONTRASTE",
+                "test",
+                "2026-09-28T00:00:00+00:00",
+                document_id,
+                "Wheels",
+                "SG2 HEV 2024 ES/EU",
+            ),
+        )
+        c.commit()
+        c.close()
+        rows = main.evidence(limit=1)
+        self.assertEqual(rows[0]["document_id"], document_id)
+        self.assertEqual(rows[0]["document_title"], "Kia Niro SG2 technical manual")
+        self.assertEqual(rows[0]["document_publisher"], "Kia")
+        self.assertEqual(rows[0]["document_type"], "manual")
+        self.assertEqual(rows[0]["document_language"], "es-ES")
+        self.assertEqual(rows[0]["document_revision"], "2024-01")
+        self.assertEqual(rows[0]["document_section"], "Wheels")
+        self.assertEqual(rows[0]["applicability"], "SG2 HEV 2024 ES/EU")
+
     def test_source_document_schema_is_present(self):
         c = main.db()
         cols = {r["name"] for r in c.execute("PRAGMA table_info(source_documents)").fetchall()}
