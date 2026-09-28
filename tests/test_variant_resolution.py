@@ -52,6 +52,19 @@ class VariantResolutionRegression(unittest.TestCase):
         c.close()
         main.ensure_seed_variants()
 
+    def test_hyundai_kona_2025_vin_crosscheck_resolves_expected_variant(self):
+        result = main.decode_hyundai_vin_crosscheck("KMHHA8110SU155502")
+        self.assertIsNotNone(result)
+        self.assertEqual(result["manufacturer"], "Hyundai Motor Company")
+        self.assertEqual(result["model"], "Kona SX2")
+        self.assertEqual(result["variant"], "HEV")
+        self.assertEqual(result["model_year"], 2025)
+        self.assertEqual(result["engine_code"], "G4LL")
+        self.assertEqual(result["transmission"], "Automática DCT de 6 velocidades")
+        self.assertEqual(result["drive"], "Tracción delantera")
+        self.assertEqual(result["plant_code"], "U")
+        self.assertEqual(result["vds"], "HHA811")
+
     def test_kona_requires_compatible_signals(self):
         r = main.resolve_variant_signals({
             "make": "Hyundai",
