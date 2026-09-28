@@ -1249,7 +1249,23 @@ def variant(vehicle_id:str):
 
 @app.get("/api/evidence")
 def evidence(limit:int=Query(50,ge=1,le=200)):
-    c=db(); rows=c.execute("SELECT * FROM evidence ORDER BY id DESC LIMIT ?",(limit,)).fetchall(); c.close(); return [dict(r) for r in rows]
+    c=db()
+    rows=c.execute("""
+      SELECT e.*,
+             sd.title AS document_title,
+             sd.url AS document_url,
+             sd.source_class AS document_source_class,
+             sd.publisher AS document_publisher,
+             sd.document_type AS document_type,
+             sd.language AS document_language,
+             sd.revision AS document_revision,
+             sd.retrieved_at AS document_retrieved_at
+      FROM evidence e
+      LEFT JOIN source_documents sd ON sd.document_id=e.document_id
+      ORDER BY e.id DESC LIMIT ?
+    """,(limit,)).fetchall()
+    c.close()
+    return [dict(r) for r in rows]
 
 @app.get("/api/license")
 def license_info():
