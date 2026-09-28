@@ -191,6 +191,40 @@ class VariantResolutionRegression(unittest.TestCase):
         self.assertEqual(rows[0]["document_section"], "Wheels")
         self.assertEqual(rows[0]["applicability"], "SG2 HEV 2024 ES/EU")
 
+    def test_technical_exposes_source_document_metadata(self):
+        c = main.db()
+        c.execute(
+            """INSERT INTO technical_records(
+                 vehicle_id,variant_id,category,field,value,unit,source_title,source_url,
+                 source_class,confidence,applicable_from,applicable_to,notes,created_at
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "test/kia-niro-sg2-hev",
+                "car/kia/niro-sg2-hev-2024",
+                "torque",
+                "Tuercas de rueda",
+                "107–127",
+                "Nm",
+                "Kia Niro wheels",
+                "https://example.invalid/kia-niro-wheels",
+                "TEST",
+                "CONTRASTADO",
+                "2024",
+                "2024",
+                "test",
+                "2026-09-28T00:00:00+00:00",
+            ),
+        )
+        c.commit()
+        c.close()
+        main.ensure_technical_source_documents()
+        rows = main.technical("test/kia-niro-sg2-hev", "torque")
+        row = next(x for x in rows if x["field"] == "Tuercas de rueda")
+        self.assertEqual(row["document_title"], "Kia Niro wheels")
+        self.assertEqual(row["document_url"], "https://example.invalid/kia-niro-wheels")
+        self.assertEqual(row["document_source_class"], "TEST")
+        self.assertIsNotNone(row["source_document_id"])
+
     def test_source_document_schema_is_present(self):
         c = main.db()
         cols = {r["name"] for r in c.execute("PRAGMA table_info(source_documents)").fetchall()}
