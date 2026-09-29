@@ -1360,6 +1360,38 @@ def variant_dashboard(vehicle_id:str):
     }
 
 
+@app.get("/api/evidence/{vehicle_id:path}")
+def evidence_for_vehicle(vehicle_id:str, category:str=""):
+    """Devuelve evidencia pública ya almacenada para la variante, sin lanzar una nueva búsqueda."""
+    profile=find_technical_profile(vehicle_id)
+    variant_id=profile.get("variant_id") or profile.get("profile_vehicle_id")
+    if not variant_id:
+        return []
+    c=db()
+    if category:
+        rows=c.execute(
+            """SELECT e.*, sd.title AS document_title, sd.url AS document_url,
+                      sd.source_class AS document_source_class
+               FROM evidence e
+               LEFT JOIN source_documents sd ON sd.document_id=e.document_id
+               WHERE e.variant_id=? AND e.category=?
+               ORDER BY e.created_at DESC""",
+            (variant_id,category)
+        ).fetchall()
+    else:
+        rows=c.execute(
+            """SELECT e.*, sd.title AS document_title, sd.url AS document_url,
+                      sd.source_class AS document_source_class
+               FROM evidence e
+               LEFT JOIN source_documents sd ON sd.document_id=e.document_id
+               WHERE e.variant_id=?
+               ORDER BY e.created_at DESC""",
+            (variant_id,)
+        ).fetchall()
+    c.close()
+    return [dict(r) for r in rows]
+
+
 @app.get("/api/technical/{vehicle_id:path}")
 def technical(vehicle_id:str, category:str=Query("")):
     profile=find_technical_profile(vehicle_id,category)
