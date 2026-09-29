@@ -318,6 +318,7 @@ async function saveHomeVin() {
 }
 
 const modules = [
+  ["Datos técnicos","technical specifications","Motor, potencia, cilindrada y configuración de la variante"],
   ["Mantenimiento","maintenance","Intervalos, operaciones y condiciones de servicio"],
   ["Distribución","timing","Correa/cadena, procedimientos y referencias de trabajo"],
   ["Pares de apriete","torque","Pares, ángulos y condiciones de apriete"],
