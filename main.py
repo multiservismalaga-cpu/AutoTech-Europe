@@ -944,7 +944,7 @@ def engine_search(q:str=Query(...,min_length=2,max_length=80), limit:int=Query(3
     return [x[1] for x in ranked[:limit]]
 
 def hyundai_test_vds(vin):
-    return vin[3:8] == "H" + "A811"
+    return vin[3:9] == "H" + "A811"
 
 
 def decode_hyundai_vin_crosscheck(vin):
@@ -965,7 +965,7 @@ def decode_hyundai_vin_crosscheck(vin):
     result["transmission"] = "Automática DCT de 6 velocidades"
     result["drive"] = "Tracción delantera"
     result["fuel"] = "Gasolina híbrido"
-    result["vds"] = vin[3:8]
+    result["vds"] = vin[3:9]
     result["year_code"] = vin[9]
     result["plant_code"] = vin[10]
     result["plant"] = "Ulsan, Corea del Sur" if vin[10] == "U" else vin[10]
