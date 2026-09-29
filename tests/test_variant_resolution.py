@@ -247,7 +247,7 @@ class VariantResolutionRegression(unittest.TestCase):
                 "test/kia-niro-sg2-hev",
                 "car/kia/niro-sg2-hev-2024",
                 "torque",
-                "Tuercas de rueda",
+                "Tuercas de rueda test",
                 "107–127",
                 "Nm",
                 "Kia Niro wheels",
@@ -264,9 +264,9 @@ class VariantResolutionRegression(unittest.TestCase):
         c.close()
         main.ensure_technical_source_documents()
         rows = main.technical("test/kia-niro-sg2-hev", "torque")
-        row = next(x for x in rows if x["field"] == "Tuercas de rueda")
+        row = next(x for x in rows if x["field"] == "Tuercas de rueda test")
         self.assertEqual(row["document_title"], "Kia Niro wheels")
-        self.assertEqual(row["document_url"], "https://example.invalid/kia-niro-wheels")
+        self.assertEqual(row["document_url"], "https://example.invalid/kia-niro-wheels-test")
         self.assertEqual(row["document_source_class"], "TEST")
         self.assertIsNotNone(row["source_document_id"])
 
