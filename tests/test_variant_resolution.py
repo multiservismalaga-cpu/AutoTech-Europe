@@ -251,7 +251,7 @@ class VariantResolutionRegression(unittest.TestCase):
                 "107–127",
                 "Nm",
                 "Kia Niro wheels",
-                "https://example.invalid/kia-niro-wheels",
+                "https://example.invalid/kia-niro-wheels-test",
                 "TEST",
                 "CONTRASTADO",
                 "2024",
