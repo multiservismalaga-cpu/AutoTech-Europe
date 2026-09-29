@@ -77,6 +77,43 @@ class VariantResolutionRegression(unittest.TestCase):
         self.assertTrue(rows)
         self.assertTrue(all(row["variant_id"] == "car/kia/niro-sg2-hev-2024" for row in rows))
 
+    def test_evidence_endpoint_returns_stored_variant_evidence(self):
+        c = main.db()
+        c.execute(
+            """INSERT INTO evidence(
+                 variant_id,document_id,document_section,category,applicability,
+                 snippet,created_at
+               ) VALUES(?,?,?,?,?,?,?)""",
+            (
+                "car/bmw/3-series-320d",
+                "doc-test-bmw-evidence",
+                "Test section",
+                "timing",
+                "G20 B47D20O1",
+                "Evidence stored for this exact variant.",
+                "2026-09-29T00:00:00+00:00",
+            ),
+        )
+        c.execute(
+            """INSERT OR REPLACE INTO source_documents(
+                 document_id,variant_id,title,url,source_class,created_at
+               ) VALUES(?,?,?,?,?,?)""",
+            (
+                "doc-test-bmw-evidence",
+                "car/bmw/3-series-320d",
+                "BMW timing evidence test",
+                "https://example.invalid/bmw-timing-test",
+                "TEST",
+                "2026-09-29T00:00:00+00:00",
+            ),
+        )
+        c.commit()
+        c.close()
+        rows = main.evidence_for_vehicle("car/bmw/3-series-320d", "timing")
+        self.assertTrue(rows)
+        self.assertEqual(rows[0]["document_title"], "BMW timing evidence test")
+        self.assertEqual(rows[0]["variant_id"], "car/bmw/3-series-320d")
+
     def test_variant_dashboard_reports_module_state(self):
         dashboard = main.variant_dashboard("car/bmw/3-series-320d")
         self.assertTrue(dashboard["ok"])
