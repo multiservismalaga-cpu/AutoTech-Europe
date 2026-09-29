@@ -51,6 +51,10 @@ class VariantResolutionRegression(unittest.TestCase):
         c.commit()
         c.close()
         main.ensure_seed_variants()
+        main.seed_verified_bmw_g20_320d()
+        main.seed_verified_kia_niro_sg2_hev()
+        main.ensure_technical_variant_links()
+        main.ensure_technical_source_documents()
 
     def test_engine_search_shared_code_returns_both_variants(self):
         rows = main.engine_search("G4LL", 30)
