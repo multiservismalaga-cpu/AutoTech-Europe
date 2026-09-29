@@ -400,7 +400,7 @@ def find_technical_profile(vehicle_id, category=""):
             profile=direct["variant_id"]
             c=db()
             n=c.execute(
-                "SELECT COUNT(*) n FROM technical_records WHERE variant_id=? OR vehicle_id=?"+(" AND category=?" if category else ""),
+                "SELECT COUNT(*) n FROM technical_records WHERE (variant_id=? OR vehicle_id=?)"+(" AND category=?" if category else ""),
                 (profile,profile,category) if category else (profile,profile)
             ).fetchone()["n"]
             c.close()
