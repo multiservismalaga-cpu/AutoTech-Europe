@@ -944,7 +944,7 @@ def engine_search(q:str=Query(...,min_length=2,max_length=80), limit:int=Query(3
     return [x[1] for x in ranked[:limit]]
 
 def hyundai_test_vds(vin):
-    return vin[3:9] == "H" + "A811"
+    return vin[3:9] == "HHA811"
 
 
 def decode_hyundai_vin_crosscheck(vin):
