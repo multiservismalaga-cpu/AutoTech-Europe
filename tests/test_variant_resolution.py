@@ -52,6 +52,34 @@ class VariantResolutionRegression(unittest.TestCase):
         c.close()
         main.ensure_seed_variants()
 
+    def test_engine_search_shared_code_returns_both_variants(self):
+        rows = main.engine_search("G4LL", 30)
+        ids = {row["id"] for row in rows if row.get("is_variant")}
+        self.assertIn("car/hyundai/kona-sx2-hev-2025", ids)
+        self.assertIn("car/kia/niro-sg2-hev-2024", ids)
+        self.assertEqual(len(ids), 2)
+
+    def test_engine_search_b47d20o1_returns_bmw_variant(self):
+        rows = main.engine_search("B47D20O1", 30)
+        self.assertTrue(any(
+            row.get("id") == "car/bmw/3-series-320d"
+            and row.get("engine_code") == "B47D20O1"
+            and row.get("generation") == "G20"
+            for row in rows
+        ))
+
+    def test_canonical_variant_id_returns_technical_records(self):
+        rows = main.technical("car/kia/niro-sg2-hev-2024", "maintenance")
+        self.assertTrue(rows)
+        self.assertTrue(all(row["variant_id"] == "car/kia/niro-sg2-hev-2024" for row in rows))
+
+    def test_variant_dashboard_reports_module_state(self):
+        dashboard = main.variant_dashboard("car/bmw/3-series-320d")
+        self.assertTrue(dashboard["ok"])
+        self.assertEqual(dashboard["variant"]["variant_id"], "car/bmw/3-series-320d")
+        categories = {row["category"]: row for row in dashboard["modules"]}
+        self.assertEqual(categories["technical specifications"]["status"], "CONTRASTADO")
+        self.assertIn(categories["timing"]["status"], {"SIN DATOS LOCALES", "EVIDENCIA WEB"})
     def test_hyundai_kona_2025_vin_crosscheck_resolves_expected_variant(self):
         result = main.decode_hyundai_vin_crosscheck("KMHHA8110SU155502")
         self.assertIsNotNone(result)
