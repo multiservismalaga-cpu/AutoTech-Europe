@@ -878,7 +878,16 @@ def startup():
             SYNC_STATE.update({"sync":"descargando" if needs_refresh else "listo","error":None})
             meta_set("dataset_sync",SYNC_STATE["sync"])
             result = refresh_database(True) if needs_refresh else refresh_database(False)
-            if not result.get("ok"):
+            if result.get("ok"):
+                SYNC_STATE.update({
+                    "sync":"listo",
+                    "count":result.get("count",count_vehicles()),
+                    "dataset":result.get("version",DATASET_VERSION),
+                    "updated_at":datetime.now(timezone.utc).isoformat(),
+                    "error":None
+                })
+                meta_set("dataset_sync","listo")
+            else:
                 SYNC_STATE.update({"sync":"error","error":result.get("error","Error desconocido")})
                 meta_set("dataset_sync","error")
                 meta_set("dataset_error",result.get("error","Error desconocido"))
