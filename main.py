@@ -407,11 +407,19 @@ def find_technical_profile(vehicle_id, category=""):
             c.close()
             return {"profile_vehicle_id":profile,"variant_id":profile,"match":mapped["match_method"],
                     "confidence":mapped["confidence"],"reason":"vehicle_variant_map"}
-    exact_sql="SELECT COUNT(*) n FROM technical_records WHERE vehicle_id=?"
-    exact=c.execute(exact_sql,(vehicle_id,)).fetchone()["n"]
-    if exact:
+    exact_row=c.execute(
+        """SELECT variant_id
+           FROM technical_records
+           WHERE vehicle_id=?
+           ORDER BY CASE WHEN variant_id IS NULL THEN 1 ELSE 0 END, id
+           LIMIT 1""",
+        (vehicle_id,)
+    ).fetchone()
+    if exact_row:
+        exact_variant=exact_row["variant_id"] or vehicle_id
         c.close()
-        return {"profile_vehicle_id":vehicle_id,"variant_id":vehicle_id,"match":"exact","reason":"exact_technical_records"}
+        return {"profile_vehicle_id":exact_variant,"variant_id":exact_variant,
+                "match":"exact","reason":"exact_technical_records"}
     raw=ctx.get("raw") or {}
     resolved=resolve_variant_signals({
         "make":ctx.get("make"),"model":ctx.get("model"),
