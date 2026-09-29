@@ -1,6 +1,9 @@
 name: Final project package
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - vin-hyundai-crosscheck
