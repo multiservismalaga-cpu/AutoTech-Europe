@@ -392,9 +392,26 @@ def vehicle_variant_context(vehicle_id):
     }
 
 def find_technical_profile(vehicle_id, category=""):
-    """Busca primero el vehículo exacto y después perfiles explícitos de familia/variante."""
+    """Resuelve primero una variante canónica; después el vehículo del catálogo."""
     ctx=vehicle_variant_context(vehicle_id)
     if not ctx:
+        direct=get_vehicle_variant(vehicle_id)
+        if direct:
+            profile=direct["variant_id"]
+            c=db()
+            n=c.execute(
+                "SELECT COUNT(*) n FROM technical_records WHERE variant_id=? OR vehicle_id=?"+(" AND category=?" if category else ""),
+                (profile,profile,category) if category else (profile,profile)
+            ).fetchone()["n"]
+            c.close()
+            return {
+                "profile_vehicle_id":profile,
+                "variant_id":profile,
+                "match":"canonical-profile",
+                "confidence":direct.get("confidence") or direct.get("match_confidence"),
+                "reason":"canonical_variant_id",
+                "has_technical_data":bool(n)
+            }
         return {"profile_vehicle_id":None,"match":"none","reason":"vehicle_not_found"}
     c=db()
     mapped=c.execute("""SELECT variant_id,match_method,confidence
@@ -939,26 +956,50 @@ def models(make:str=Query("",max_length=100), q:str=Query("",max_length=120), li
 
 @app.get("/api/engine-search")
 def engine_search(q:str=Query(...,min_length=2,max_length=80), limit:int=Query(30,ge=1,le=100)):
+    """Busca aplicaciones del código/familia de motor sin mezclar variantes."""
     needle=normalize(q)
+    like="%"+needle+"%"
     c=db()
-    rows=c.execute(
-        "SELECT id,make,model,kind,years,body_types,raw_json FROM vehicles"
+    variants=c.execute(
+        """SELECT vv.*, vvm.match_method, vvm.confidence AS match_confidence
+           FROM vehicle_variants vv
+           LEFT JOIN vehicle_variant_map vvm ON vvm.variant_id=vv.variant_id
+           WHERE lower(vv.engine_code) LIKE ?
+              OR lower(vv.engine_family) LIKE ?
+              OR lower(vv.model) LIKE ?
+              OR lower(vv.variant_key) LIKE ?
+           ORDER BY vv.make COLLATE NOCASE, vv.model COLLATE NOCASE,
+                    vv.year_from, vv.year_to
+           LIMIT ?""",
+        (like,like,like,like,limit)
     ).fetchall()
-    tech=c.execute(
-        "SELECT DISTINCT vehicle_id FROM technical_records WHERE lower(field) LIKE '%motor%' AND lower(value) LIKE ?",
-        ("%"+q.lower()+"%",)
-    ).fetchall()
+    variant_ids={r["variant_id"] for r in variants}
+    remaining=max(0,limit-len(variants))
+    catalog=[]
+    if remaining:
+        rows=c.execute(
+            """SELECT id,make,model,kind,years,body_types,raw_json
+               FROM vehicles
+               WHERE lower(make || ' ' || model || ' ' || coalesce(raw_json,'')) LIKE ?
+               ORDER BY make COLLATE NOCASE, model COLLATE NOCASE
+               LIMIT ?""",
+            (like,remaining)
+        ).fetchall()
+        for row in rows:
+            if row["id"] not in variant_ids:
+                catalog.append(dict(row))
     c.close()
-    tech_ids={r["vehicle_id"] for r in tech}
-    ranked=[]
-    for r in rows:
-        hay=normalize(" ".join([r["make"] or "",r["model"] or "",r["raw_json"] or ""]))
-        if needle in hay or r["id"] in tech_ids:
-            score=100 if needle in normalize(r["model"] or "") else 40
-            if r["id"] in tech_ids: score+=80
-            ranked.append((score,dict(r)))
-    ranked.sort(key=lambda x:(-x[0],normalize(x[1]["make"]),normalize(x[1]["model"])))
-    return [x[1] for x in ranked[:limit]]
+    result=[]
+    for row in variants:
+        item=dict(row)
+        item["id"]=row["variant_id"]
+        item["kind"]="technical variant"
+        item["years"]=(row["year_from"] or "") + ("–"+row["year_to"] if row["year_to"] and row["year_to"]!=row["year_from"] else "")
+        item["body_types"]=""
+        item["is_variant"]=True
+        result.append(item)
+    result.extend(catalog)
+    return result[:limit]
 
 def hyundai_test_vds(vin):
     return vin[2:8] == "HHA811"
@@ -1134,8 +1175,31 @@ def get_vin(vin:str):
 @app.get("/api/vehicle/{vehicle_id:path}")
 def vehicle(vehicle_id:str):
     c=db(); row=c.execute("SELECT * FROM vehicles WHERE id=?",(vehicle_id,)).fetchone(); c.close()
-    if not row: return JSONResponse({"error":"Vehículo no encontrado"},status_code=404)
-    return dict(row)
+    if row:
+        return dict(row)
+    variant=get_vehicle_variant(vehicle_id)
+    if variant:
+        item=dict(variant)
+        item.update({
+            "id":variant["variant_id"],
+            "kind":"technical variant",
+            "years":(variant.get("year_from") or "") + ("–"+variant["year_to"] if variant.get("year_to") and variant["year_to"]!=variant.get("year_from") else ""),
+            "body_types":"",
+            "availability":variant.get("market") or "",
+            "sources":variant.get("source_class") or "",
+            "raw_json":json.dumps({
+                "generation":variant.get("generation"),
+                "engine_family":variant.get("engine_family"),
+                "engine_code":variant.get("engine_code"),
+                "transmission":variant.get("transmission"),
+                "drive":variant.get("drive"),
+                "fuel":variant.get("fuel"),
+                "market":variant.get("market")
+            },ensure_ascii=False),
+            "is_variant":True
+        })
+        return item
+    return JSONResponse({"error":"Vehículo no encontrado"},status_code=404)
 
 @app.post("/api/research")
 def research(payload:dict):
@@ -1229,6 +1293,71 @@ def research(payload:dict):
     c.commit()
     c.close()
     return {"ok":True,"query":query,"results":results,"cached":False,"profile_vehicle_id":research_vehicle_id,"requested_vehicle_id":requested_vehicle_id}
+
+@app.get("/api/variant-dashboard/{vehicle_id:path}")
+def variant_dashboard(vehicle_id:str):
+    """Resumen de trabajo por módulo: dato contrastado, evidencia web o pendiente."""
+    profile=find_technical_profile(vehicle_id)
+    variant_id=profile.get("variant_id") or profile.get("profile_vehicle_id")
+    if not variant_id:
+        return JSONResponse({"ok":False,"error":"Variante técnica no resuelta"},status_code=404)
+    variant=get_vehicle_variant(variant_id)
+    if not variant:
+        return JSONResponse({"ok":False,"error":"Variante técnica no encontrada"},status_code=404)
+    modules=[
+      ("maintenance","Mantenimiento","Intervalos, operaciones y condiciones de servicio"),
+      ("timing","Distribución","Correa/cadena, procedimientos y referencias de trabajo"),
+      ("torque","Pares de apriete","Pares, ángulos y condiciones de apriete"),
+      ("lubricants","Fluidos","Aceites, refrigerante, capacidades y especificaciones"),
+      ("diagnosis","Diagnóstico","Síntomas, pruebas, valores y procedimientos"),
+      ("drawings","Esquemas","Esquemas eléctricos y componentes"),
+      ("fuses","Fusibles","Cajas, posiciones y funciones"),
+      ("oem","OEM / referencias","Códigos y referencias del fabricante"),
+      ("repair manuals","Reparación","Procedimientos y documentación de reparación"),
+      ("engine management","Gestión motor","Sistemas de gestión y diagnóstico"),
+      ("comfort electronics","Electrónica confort","Sistemas de carrocería y confort"),
+      ("repair times","Tiempos reparación","Tiempos de trabajo documentados"),
+      ("recalls","Recalls","Campañas y avisos documentados"),
+      ("smart fix","Smart Fix / Cases","Casos y soluciones técnicas documentadas"),
+      ("cost estimate","Coste estimado","Base para presupuestos; no inventa precios")
+    ]
+    c=db()
+    tech_rows=c.execute(
+        "SELECT category,COUNT(*) n FROM technical_records WHERE variant_id=? GROUP BY category",
+        (variant_id,)
+    ).fetchall()
+    evidence_rows=c.execute(
+        "SELECT category,COUNT(*) n FROM evidence WHERE variant_id=? GROUP BY category",
+        (variant_id,)
+    ).fetchall()
+    c.close()
+    tech={r["category"]:r["n"] for r in tech_rows}
+    ev={r["category"]:r["n"] for r in evidence_rows}
+    data=[]
+    for category,label,description in modules:
+        tc=int(tech.get(category,0) or 0)
+        ec=int(ev.get(category,0) or 0)
+        if tc:
+            status="CONTRASTADO"
+        elif ec:
+            status="EVIDENCIA WEB"
+        else:
+            status="SIN DATOS LOCALES"
+        data.append({
+            "category":category,"label":label,"description":description,
+            "status":status,"technical_count":tc,"evidence_count":ec
+        })
+    return {
+        "ok":True,
+        "variant":variant,
+        "modules":data,
+        "summary":{
+            "verified":sum(1 for x in data if x["status"]=="CONTRASTADO"),
+            "evidence":sum(1 for x in data if x["status"]=="EVIDENCIA WEB"),
+            "empty":sum(1 for x in data if x["status"]=="SIN DATOS LOCALES")
+        }
+    }
+
 
 @app.get("/api/technical/{vehicle_id:path}")
 def technical(vehicle_id:str, category:str=Query("")):
