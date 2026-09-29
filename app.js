@@ -479,7 +479,36 @@ async function researchCategory(category) {
       return;
     }
   } catch (e) {}
+  try {
+    const evidence = await api("/api/evidence/" + encodeURIComponent(base.id) +
+      "?category=" + encodeURIComponent(category));
+    if (evidence.length) {
+      renderEvidenceRows(category, evidence);
+      return;
+    }
+  } catch (e) {}
   await runResearch({vehicle_id:base.id,make:base.make,model:base.model,category});
+}
+
+function renderEvidenceRows(category, rows) {
+  $("#webresults").classList.remove("hidden");
+  $("#webresults").innerHTML =
+    '<div class="module-nav"><button id="backDetail" class="secondary">← Volver a ficha</button>' +
+    '<div class="nav-crumb">Vehículo seleccionado / evidencia almacenada</div><button id="moduleTop" class="secondary">↑ Arriba</button></div>' +
+    '<div class="eyebrow">EVIDENCIA WEB ALMACENADA</div><h3>' +
+    esc(category.replace(/\b\w/g, (c) => c.toUpperCase())) +
+    '</h3><p class="small">Evidencia previamente contrastada y asociada a esta variante. Se mantiene separada de los datos técnicos confirmados.</p>' +
+    rows.map((x) =>
+      '<div class="evidence"><a class="source" target="_blank" rel="noopener" href="' +
+      esc(x.document_url || x.url || "#") + '">' + esc(x.document_title || x.title || x.url || "Fuente") +
+      '</a><div class="small">' + esc(x.document_source_class || x.source_class || "") + '</div>' +
+      '<p class="small">' + esc(x.snippet || x.applicability || x.document_section || "Evidencia asociada a la variante.") + '</p></div>'
+    ).join("");
+  $("#backDetail").onclick = () => {
+    $("#webresults").classList.add("hidden");
+    $("#detail").scrollIntoView({behavior:"smooth"});
+  };
+  $("#moduleTop").onclick = () => window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function renderTechnicalRows(category, rows) {
