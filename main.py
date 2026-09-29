@@ -1305,6 +1305,7 @@ def variant_dashboard(vehicle_id:str):
     if not variant:
         return JSONResponse({"ok":False,"error":"Variante técnica no encontrada"},status_code=404)
     modules=[
+      ("technical specifications","Datos técnicos","Motor, potencia, cilindrada y configuración de la variante"),
       ("maintenance","Mantenimiento","Intervalos, operaciones y condiciones de servicio"),
       ("timing","Distribución","Correa/cadena, procedimientos y referencias de trabajo"),
       ("torque","Pares de apriete","Pares, ángulos y condiciones de apriete"),
