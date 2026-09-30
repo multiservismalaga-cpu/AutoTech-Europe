@@ -1002,7 +1002,7 @@ def engine_search(q:str=Query(...,min_length=2,max_length=80), limit:int=Query(3
     return result[:limit]
 
 def hyundai_test_vds(vin):
-    return vin[2:8] == "HHA811"
+    return bool(re.fullmatch(r"[A-HJ-NPR-Z0-9]{17}", vin)) and vin[2:8] == "HHA811"
 
 
 def decode_hyundai_vin_crosscheck(vin):
