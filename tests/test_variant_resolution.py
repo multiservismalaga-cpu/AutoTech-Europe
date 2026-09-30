@@ -99,7 +99,7 @@ class VariantResolutionRegression(unittest.TestCase):
                  document_id,variant_id,title,url,source_class,retrieved_at
                ) VALUES(?,?,?,?,?,?)""",
             (
-                "doc-test-bmw-evidence",
+                900001,
                 "car/bmw/3-series-320d",
                 "BMW timing evidence test",
                 "https://example.invalid/bmw-timing-test",
