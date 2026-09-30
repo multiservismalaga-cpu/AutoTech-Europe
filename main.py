@@ -1375,7 +1375,7 @@ def evidence_for_vehicle(vehicle_id:str, category:str=""):
                FROM evidence e
                LEFT JOIN source_documents sd ON sd.document_id=e.document_id
                WHERE e.variant_id=? AND e.category=?
-               ORDER BY e.created_at DESC""",
+               ORDER BY e.fetched_at DESC, e.id DESC""",
             (variant_id,category)
         ).fetchall()
     else:
@@ -1385,7 +1385,7 @@ def evidence_for_vehicle(vehicle_id:str, category:str=""):
                FROM evidence e
                LEFT JOIN source_documents sd ON sd.document_id=e.document_id
                WHERE e.variant_id=?
-               ORDER BY e.created_at DESC""",
+               ORDER BY e.fetched_at DESC, e.id DESC""",
             (variant_id,)
         ).fetchall()
     c.close()
