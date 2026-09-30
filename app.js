@@ -492,7 +492,6 @@ async function saveVin() {
 
 async function researchCategory(category) {
   const base = selected || {};
-  const meta = modules.find(m => m[1] === category) || [category, category, ""];
   if (!base.id) {
     showStatus("Selecciona primero un vehículo.");
     return;
@@ -584,6 +583,8 @@ async function runResearch(payload) {
       esc(x.source_class) + ' · ' + esc(x.confidence) + '</div><p class="small">' +
       esc(x.snippet || "Sin extracto") + '</p></div>'
     ).join("");
+    const moduleMeta = modules.find(m => m[1] === payload.category) || [payload.category || "Evidencia técnica", payload.category || "", ""];
+    renderModuleContent(payload.category || "", moduleMeta[0], '<p class="small">Resultados públicos recién consultados para la variante seleccionada. Quedan almacenados como evidencia pendiente de contraste.</p>' + results, "EVIDENCIA WEB");
     $("#webresults").innerHTML =
       '<div class="module-nav"><button id="backDetail" class="secondary">← Volver a ficha</button>' +
       '<div class="nav-crumb">Vehículo seleccionado / módulo técnico</div><button id="moduleTop" class="secondary">↑ Arriba</button></div>' +
