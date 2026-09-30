@@ -82,11 +82,11 @@ class VariantResolutionRegression(unittest.TestCase):
         c.execute(
             """INSERT INTO evidence(
                  variant_id,document_id,document_section,category,applicability,
-                 snippet,created_at
+                 snippet,fetched_at
                ) VALUES(?,?,?,?,?,?,?)""",
             (
                 "car/bmw/3-series-320d",
-                "doc-test-bmw-evidence",
+                900001,
                 "Test section",
                 "timing",
                 "G20 B47D20O1",
@@ -96,7 +96,7 @@ class VariantResolutionRegression(unittest.TestCase):
         )
         c.execute(
             """INSERT OR REPLACE INTO source_documents(
-                 document_id,variant_id,title,url,source_class,created_at
+                 document_id,variant_id,title,url,source_class,retrieved_at
                ) VALUES(?,?,?,?,?,?)""",
             (
                 "doc-test-bmw-evidence",
