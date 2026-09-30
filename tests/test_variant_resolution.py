@@ -121,6 +121,11 @@ class VariantResolutionRegression(unittest.TestCase):
         categories = {row["category"]: row for row in dashboard["modules"]}
         self.assertEqual(categories["technical specifications"]["status"], "CONTRASTADO")
         self.assertIn(categories["timing"]["status"], {"SIN DATOS LOCALES", "EVIDENCIA WEB"})
+    def test_hyundai_vin_crosscheck_rejects_malformed_input(self):
+        self.assertIsNone(main.decode_hyundai_vin_crosscheck(""))
+        self.assertIsNone(main.decode_hyundai_vin_crosscheck("KMHHA8110SU15550"))
+        self.assertIsNone(main.decode_hyundai_vin_crosscheck("KMHHA8110SU15550I"))
+
     def test_hyundai_kona_2025_vin_crosscheck_resolves_expected_variant(self):
         result = main.decode_hyundai_vin_crosscheck("KMHHA8110SU155502")
         self.assertIsNotNone(result)
