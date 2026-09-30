@@ -51,16 +51,10 @@ jobs:
             if ($p -and -not $p.HasExited) { Stop-Process -Id $p.Id -Force }
           }
 
-      - name: Build final ZIP with executable
-        shell: pwsh
-        run: |
-          $zip = "AutoTech-Europe-final-$env:GITHUB_SHA.zip"
-          git archive --format=zip --output="$zip" HEAD
-          Compress-Archive -Path ".\AutoTech Europe.exe" -Update -DestinationPath $zip
-
-      - name: Upload final ZIP
+      - name: Upload Windows executable
         uses: actions/upload-artifact@v4
         with:
-          name: AutoTech-Europe-final
-          path: AutoTech-Europe-final-${{ github.sha }}.zip
+          name: AutoTech-Europe-windows-executable
+          path: "AutoTech Europe.exe"
+          if-no-files-found: error
           retention-days: 90
