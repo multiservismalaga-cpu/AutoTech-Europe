@@ -2,8 +2,19 @@ name: Construir instalador Windows
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches: [main]
+    paths:
+      - 'main.py'
+      - 'index.html'
+      - 'styles.css'
+      - 'app.js'
+      - 'assets/**'
+      - 'AutoTech_Europe_Windows.spec'
+      - 'AutoTech_Europe.iss'
+      - '.github/workflows/windows-installer.yml'
+  push:
+    branches: [main, vin-hyundai-crosscheck]
     paths:
       - 'main.py'
       - 'index.html'

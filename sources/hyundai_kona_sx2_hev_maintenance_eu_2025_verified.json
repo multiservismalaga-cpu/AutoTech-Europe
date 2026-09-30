@@ -1,0 +1,26 @@
+{
+  "vehicle": "Hyundai KONA SX2 HEV (SX2HEV), modelo 2025",
+  "scope": "Normal maintenance schedule — Gasoline engine, for Europe",
+  "primary_source": "https://www.hyundai.rs/upload/document/korisnicko_uputstvo_kona.pdf",
+  "manufacturer_manual": "https://ownersmanual.hyundai.com/full_webhelp/SX2HEV/2025/es_ES/indexterm.html",
+  "verified": [
+    {"item":"Correa HSG","operation":"Inspeccionar cada 15.000 km o 12 meses; sustituir cada 105.000 km o 48 meses.","confidence":"ALTA"},
+    {"item":"Aceite y filtro de motor","operation":"Sustituir cada 15.000 km o 12 meses.","confidence":"ALTA"},
+    {"item":"Aditivo de combustible","operation":"Añadir cada 15.000 km o 12 meses cuando corresponda según combustible EN228.","confidence":"ALTA"},
+    {"item":"Filtro de aire del motor","operation":"Inspección a 15.000, 45.000, 75.000 y 105.000 km; sustitución a 30.000, 60.000, 90.000 y 120.000 km.","confidence":"ALTA"},
+    {"item":"Refrigerante motor/sistema de batería","operation":"Primera sustitución a 195.000 km o 120 meses; después cada 30.000 km o 24 meses.","confidence":"ALTA"},
+    {"item":"Líquido de frenos","operation":"Inspección a 15.000, 30.000, 60.000, 75.000, 105.000 y 120.000 km; sustitución a 45.000 y 90.000 km.","confidence":"ALTA"},
+    {"item":"Batería","operation":"Comprobación en cada intervalo de mantenimiento periódico.","confidence":"ALTA"},
+    {"item":"Conductos y conexiones de freno","operation":"Inspección en cada intervalo de mantenimiento periódico.","confidence":"ALTA"},
+    {"item":"Discos y pastillas de freno","operation":"Inspección en cada intervalo de mantenimiento periódico.","confidence":"ALTA"},
+    {"item":"Palieres y fuelles","operation":"Inspección a 30.000, 60.000, 90.000 y 120.000 km.","confidence":"ALTA"}
+  ],
+  "still_pending_exact_europe_table": [
+    "Bujías del 1.6 GDi HEV",
+    "Líquido del actuador del embrague del motor",
+    "Filtro de aire del habitáculo",
+    "Líquido DCT en uso normal"
+  ],
+  "important_correction": "No usar el valor de 180.000 km/10 años para el refrigerante del SX2HEV europeo: la tabla europea encontrada para este manual indica 195.000 km/120 meses como primera sustitución.",
+  "rule": "No mezclar intervalos de Australia, EE. UU. u otros mercados con la tabla europea."
+}

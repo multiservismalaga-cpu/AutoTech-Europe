@@ -1,0 +1,34 @@
+{
+  "make": "Hyundai",
+  "model": "KONA",
+  "platform": "SX2",
+  "variant": "HEV",
+  "market": "España / Europa",
+  "source_priority": [
+    "https://www.hyundai.es/catalogo/nuevo-kona.pdf",
+    "https://ownersmanual.hyundai.com/manual/KONA%20Hybrid?countryCode=C17&langCode=es_ES&projCode=SX2HEV&year=2025"
+  ],
+  "technical": {
+    "engine": "1.6 GDi HEV",
+    "displacement_cc": 1580,
+    "cylinders": 4,
+    "combined_power_cv": 141,
+    "combined_power_kw": 104,
+    "transmission": "DCT 6",
+    "drive": "FWD"
+  },
+  "vin_crosscheck": {
+    "wmi": "KMH",
+    "vds_prefix": "HA811",
+    "model_year_code_candidates": ["S"],
+    "identified_model_year_for_test_vin": 2025,
+    "engine_code": "G4LL",
+    "confidence": "HIGH_STRUCTURE_MATCH",
+    "limitation": "No se considera una identificación VIN OEM de número de serie; el cruce se basa en estructura VIN y fuentes públicas."
+  },
+  "notes": [
+    "No usar esta ficha para otros VDS sin una regla documentada.",
+    "No convertir el acabado comercial en dato VIN sin una fuente específica.",
+    "El manual oficial permite consultar información por VIN o modelo."
+  ]
+}

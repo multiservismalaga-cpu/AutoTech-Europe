@@ -1,0 +1,60 @@
+name: Final project package
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - vin-hyundai-crosscheck
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install runtime and packaging dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Verify Python regression suite
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Verify frontend JavaScript syntax
+        run: node --check app.js
+
+      - name: Build Windows executable
+        run: |
+          pyinstaller --noconfirm --clean --onefile --console --name "AutoTech Europe" --add-data "index.html:." --add-data "app.js:." --add-data "styles.css:." main.py
+          Copy-Item "dist\AutoTech Europe.exe" ".\AutoTech Europe.exe"
+
+      - name: Smoke-test Windows executable
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath ".\AutoTech Europe.exe" -PassThru
+          try {
+            Start-Sleep -Seconds 5
+            $root = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8000/"
+            if ($root.StatusCode -ne 200) { throw "La portada no responde con HTTP 200." }
+            $status = Invoke-RestMethod "http://127.0.0.1:8000/api/status"
+            if (-not $status.sync) { throw "El endpoint /api/status no devuelve estado." }
+            $js = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8000/static/app.js?v=smoke"
+            if ($js.StatusCode -ne 200) { throw "app.js no responde." }
+          }
+          finally {
+            if ($p -and -not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          }
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoTech-Europe-windows-executable
+          path: "AutoTech Europe.exe"
+          if-no-files-found: error
+          retention-days: 90
