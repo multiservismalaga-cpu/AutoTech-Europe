@@ -363,7 +363,7 @@ async function openVehicle(id) {
     '<section class="technical"><div class="section-head"><div><div class="eyebrow">MÓDULOS DE TALLER</div>' +
     '<h3>Información organizada por trabajo</h3></div><span id="dashboardStatus" class="status-chip">Cargando estado…</span></div>' +
     '<p class="small intro">Cada módulo indica si existen datos técnicos contrastados, evidencia pública ya guardada o si todavía no hay datos locales. Nunca se muestra una ficha vacía como si fuera información técnica.</p>' +
-    '<div id="moduleSummary" class="module-summary"></div><div id="workshopModules" class="modules">' + mods + '</div></section>' +
+    '<div id="moduleSummary" class="module-summary"></div><div class="module-workspace"><aside class="module-sidebar"><div class="eyebrow">ÍNDICE DE TALLER</div><div id="moduleSidebarList"></div></aside><div class="module-main"><div id="moduleContent" class="module-content"><div class="eyebrow">MÓDULO</div><h3>Selecciona una función de taller</h3><p class="small">El contenido se abre aquí y permanece ligado a la variante técnica seleccionada.</p></div><div id="workshopModules" class="modules">' + mods + '</div></div></div></section>' +
     '<button id="research" class="secondary">Investigar fuentes técnicas generales</button>';
   $("#research").onclick = () => research();
   loadVehicleVariant(selected.id);
@@ -391,11 +391,36 @@ function moduleStatusClass(status) {
   return "module-empty";
 }
 
+function renderModuleSidebar(data) {
+  const box=$("#moduleSidebarList");
+  if(!box) return;
+  box.innerHTML=(data.modules || []).map((m,i) =>
+    '<button class="module-side-item ' + (i===0 ? 'active' : '') + '" data-category="' + esc(m.category) + '">' +
+      '<span>' + esc(m.label) + '</span><small>' + esc(m.status) + '</small></button>'
+  ).join("");
+  box.querySelectorAll(".module-side-item").forEach(b => {
+    b.onclick=()=>{
+      box.querySelectorAll(".module-side-item").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      researchCategory(b.dataset.category);
+    };
+  });
+}
+
+function renderModuleContent(category,title,body,state) {
+  const box=$("#moduleContent");
+  if(!box) return;
+  box.innerHTML='<div class="module-content-head"><div><div class="eyebrow">MÓDULO DE TALLER</div><h3>' +
+    esc(title || category) + '</h3></div><span class="status-chip">' + esc(state || "CARGANDO") +
+    '</span></div>' + body;
+}
+
 function renderWorkshopModules(data) {
   const box=$("#workshopModules");
   const summary=$("#moduleSummary");
   const state=$("#dashboardStatus");
   if (!box || !data) return;
+  renderModuleSidebar(data);
   const summaryData=data.summary || {};
   if (state) state.textContent =
     Number(summaryData.verified || 0) + " contrastados · " +
@@ -467,6 +492,7 @@ async function saveVin() {
 
 async function researchCategory(category) {
   const base = selected || {};
+  const meta = modules.find(m => m[1] === category) || [category, category, ""];
   if (!base.id) {
     showStatus("Selecciona primero un vehículo.");
     return;
@@ -491,6 +517,9 @@ async function researchCategory(category) {
 }
 
 function renderEvidenceRows(category, rows) {
+  const title=(modules.find(m=>m[1]===category)||[category])[0];
+  const body='<p class="small">Evidencia pública almacenada y asociada a esta variante. No se presenta como dato OEM confirmado.</p>' + rows.map((x) => '<div class="evidence"><a class="source" target="_blank" rel="noopener" href="' + esc(x.document_url || x.url || "#") + '">' + esc(x.document_title || x.title || x.url || "Fuente") + '</a><div class="small">' + esc(x.document_source_class || x.source_class || "") + '</div><p class="small">' + esc(x.snippet || x.applicability || x.document_section || "Evidencia asociada a la variante.") + '</p></div>').join("");
+  renderModuleContent(category,title,body,"EVIDENCIA WEB");
   $("#webresults").classList.remove("hidden");
   $("#webresults").innerHTML =
     '<div class="module-nav"><button id="backDetail" class="secondary">← Volver a ficha</button>' +
@@ -512,6 +541,9 @@ function renderEvidenceRows(category, rows) {
 }
 
 function renderTechnicalRows(category, rows) {
+  const title=(modules.find(m=>m[1]===category)||[category])[0];
+  const body='<p class="small">Datos técnicos asociados directamente a la variante seleccionada. Cada fila conserva su fuente y periodo de aplicación.</p>' + rows.map((x) => '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' + esc(x.value) + (x.unit ? " " + esc(x.unit) : "") + '</span></div><div class="small"><a class="source" target="_blank" rel="noopener" href="' + esc(x.source_url) + '">' + esc(x.source_title) + '</a><br>' + esc(x.source_class) + " · " + esc(x.confidence) + " · " + esc(x.applicable_from || "") + "–" + esc(x.applicable_to || "") + '</div></div>').join("");
+  renderModuleContent(category,title,body,"CONTRASTADO");
   $("#webresults").classList.remove("hidden");
   $("#webresults").innerHTML =
     '<div class="module-nav"><button id="backDetail" class="secondary">← Volver a ficha</button>' +
