@@ -1238,6 +1238,15 @@ def research(payload:dict):
     term=category_terms.get(category,category)
     requested_vehicle_id=vehicle_id
     profile=find_technical_profile(vehicle_id,category) if vehicle_id else {"profile_vehicle_id":None,"match":"none"}
+    if not vehicle_id or not profile.get("variant_id"):
+        return JSONResponse(
+            {"ok":False,
+             "error":"No hay una variante técnica canónica suficientemente determinada para investigar esta evidencia.",
+             "requested_vehicle_id":requested_vehicle_id,
+             "profile_vehicle_id":profile.get("profile_vehicle_id"),
+             "reason":profile.get("reason","variant_not_resolved")},
+            status_code=422
+        )
     research_vehicle_id=profile.get("profile_vehicle_id") or vehicle_id
     # Cuando existe un perfil común, normalizamos también la consulta al nombre
     # canónico de ese perfil; así "Niro SG2", "Niro HEV" y variantes equivalentes
