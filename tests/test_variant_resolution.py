@@ -387,5 +387,23 @@ class VariantResolutionRegression(unittest.TestCase):
         )
 
 
+    def test_research_does_not_store_unresolved_variant_evidence(self):
+        response = main.research({
+            "vehicle_id": "test/unresolved-vehicle",
+            "make": "Kia",
+            "model": "Niro SG2 HEV",
+            "year": "2024",
+            "category": "torque",
+        })
+        self.assertEqual(response.status_code, 422)
+
+        c = main.db()
+        row = c.execute(
+            "SELECT COUNT(*) n FROM evidence WHERE vehicle_id=? AND variant_id IS NULL",
+            ("test/unresolved-vehicle",),
+        ).fetchone()
+        c.close()
+        self.assertEqual(row["n"], 0)
+
 if __name__ == "__main__":
     unittest.main()
