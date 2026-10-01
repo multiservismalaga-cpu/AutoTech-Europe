@@ -438,6 +438,14 @@ def find_technical_profile(vehicle_id, category=""):
         return {"profile_vehicle_id":exact_variant,"variant_id":exact_variant,
                 "match":"exact","reason":"exact_technical_records"}
     raw=ctx.get("raw") or {}
+    # Marca/modelo identifican el vehículo de catálogo, no una variante
+    # técnica suficiente. Exigimos al menos una señal adicional antes de
+    # heredar datos técnicos de una variante canónica.
+    variant_signal_keys=("year","model_year","engine","engine_name","engine_code",
+                         "transmission","drive","fuel","market")
+    if not any(raw.get(key) for key in variant_signal_keys):
+        c.close()
+        return {"profile_vehicle_id":None,"match":"none","reason":"insufficient_variant_signals"}
     resolved=resolve_variant_signals({
         "make":ctx.get("make"),"model":ctx.get("model"),
         "year":raw.get("year") or raw.get("model_year"),
