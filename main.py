@@ -27,15 +27,92 @@ SYNC_STATE = {"sync":"iniciando","count":0,"error":None,"dataset":None,"updated_
 app = FastAPI(title="AutoTech Europe", version="1.5.0")
 app.mount("/static", StaticFiles(directory=APP_DIR), name="static")
 
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+class _PostgresConnection:
+    """Adaptador mínimo para conservar la API sqlite3 usada por la aplicación."""
+    def __init__(self, url):
+        if psycopg is None:
+            raise RuntimeError("DATABASE_URL requiere el paquete psycopg[binary].")
+        self._conn = psycopg.connect(url, row_factory=dict_row)
+
+    def execute(self, sql, params=()):
+        sql = sql.replace(" IS ?", " IS NOT DISTINCT FROM %s")
+        sql = sql.replace("?", "%s")
+        return self._conn.execute(sql, params)
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
+
 def db():
-    # No cambiamos journal_mode en cada petición: hacerlo durante una
-    # importación puede bloquear las consultas de estado de la interfaz.
+    if DATABASE_URL.startswith(("postgres://", "postgresql://")):
+        return _PostgresConnection(DATABASE_URL)
     c = sqlite3.connect(DB, timeout=5.0)
     c.execute("PRAGMA busy_timeout=5000")
     c.row_factory = sqlite3.Row
     return c
 
+def _init_postgres_db():
+    c = db()
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE IF NOT EXISTS vehicles(
+      id TEXT PRIMARY KEY, make TEXT NOT NULL, model TEXT NOT NULL, kind TEXT,
+      body_types TEXT, years TEXT, availability TEXT, popularity TEXT,
+      sources TEXT, raw_json TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_vehicle_make ON vehicles(make);
+    CREATE INDEX IF NOT EXISTS idx_vehicle_model ON vehicles(model);
+    CREATE TABLE IF NOT EXISTS saved_vehicles(
+      id BIGSERIAL PRIMARY KEY, vin TEXT UNIQUE NOT NULL, vehicle_id TEXT, created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_saved_vehicle_vin ON saved_vehicles(vin);
+    CREATE TABLE IF NOT EXISTS evidence(
+      id BIGSERIAL PRIMARY KEY, vehicle_id TEXT, variant_id TEXT, query TEXT, category TEXT,
+      title TEXT, url TEXT, domain TEXT, source_class TEXT, confidence TEXT,
+      snippet TEXT, fetched_at TEXT, document_id BIGINT, document_section TEXT, applicability TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_evidence_variant_category ON evidence(variant_id,category,query);
+    CREATE INDEX IF NOT EXISTS idx_evidence_document ON evidence(document_id);
+    CREATE TABLE IF NOT EXISTS technical_records(
+      id BIGSERIAL PRIMARY KEY, vehicle_id TEXT NOT NULL, variant_id TEXT,
+      category TEXT NOT NULL, field TEXT NOT NULL, value TEXT, unit TEXT,
+      source_title TEXT, source_url TEXT, source_class TEXT, confidence TEXT,
+      applicable_from TEXT, applicable_to TEXT, notes TEXT, created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_technical_vehicle_category ON technical_records(vehicle_id,category);
+    CREATE INDEX IF NOT EXISTS idx_technical_variant_category ON technical_records(variant_id,category);
+    CREATE TABLE IF NOT EXISTS source_documents(
+      document_id BIGSERIAL PRIMARY KEY, variant_id TEXT, title TEXT NOT NULL, url TEXT NOT NULL,
+      source_class TEXT, publisher TEXT, document_type TEXT, language TEXT,
+      revision TEXT, retrieved_at TEXT, notes TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_source_documents_variant ON source_documents(variant_id);
+    CREATE TABLE IF NOT EXISTS vehicle_variants(
+      variant_id TEXT PRIMARY KEY, make TEXT NOT NULL, model TEXT NOT NULL, generation TEXT,
+      engine_family TEXT, engine_code TEXT, transmission TEXT, drive TEXT, fuel TEXT, market TEXT,
+      year_from TEXT, year_to TEXT, variant_key TEXT NOT NULL, source_class TEXT,
+      confidence TEXT, source_url TEXT, notes TEXT, created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_vehicle_variants_lookup
+      ON vehicle_variants(make,model,engine_code,transmission,drive,market);
+    CREATE TABLE IF NOT EXISTS vehicle_variant_map(
+      vehicle_id TEXT PRIMARY KEY, variant_id TEXT NOT NULL, match_method TEXT NOT NULL,
+      confidence TEXT NOT NULL, created_at TEXT NOT NULL,
+      FOREIGN KEY(variant_id) REFERENCES vehicle_variants(variant_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_vehicle_variant_map_variant ON vehicle_variant_map(variant_id);
+    """)
+    c.commit()
+    c.close()
+
 def init_db():
+    if DATABASE_URL.startswith(("postgres://", "postgresql://")):
+        _init_postgres_db()
+        return
     c = db()
     c.execute("PRAGMA journal_mode=WAL")
     c.executescript("""
@@ -234,12 +311,11 @@ def ensure_source_document(title,url,variant_id=None,source_class=None):
         c.close()
         return row["document_id"]
     now=datetime.now(timezone.utc).isoformat()
-    c.execute(
+    did=c.execute(
         """INSERT INTO source_documents(variant_id,title,url,source_class,retrieved_at)
-           VALUES(?,?,?,?,?)""",
+           VALUES(?,?,?,?,?) RETURNING document_id""",
         (variant_id,title,url,source_class,now)
-    )
-    did=c.execute("SELECT last_insert_rowid()").fetchone()[0]
+    ).fetchone()["document_id"]
     c.commit(); c.close()
     return did
 
