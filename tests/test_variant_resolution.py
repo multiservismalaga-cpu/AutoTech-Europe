@@ -323,7 +323,7 @@ class VariantResolutionRegression(unittest.TestCase):
             """INSERT OR REPLACE INTO vehicles
                (id,make,model,kind,body_types,years,availability,popularity,sources,raw_json)
                VALUES(?,?,?,?,?,?,?,?,?,?)""",
-            ("test/unresolved-vehicle","Kia","Niro SG2 HEV","car","","2024-2026",'["ES","EU"]',"test","{}"),
+            ("test/unresolved-vehicle","Kia","Niro SG2 HEV","car","","2024-2026",'["ES","EU"]',"test","test","{}"),
         )
         c.commit()
         c.close()
