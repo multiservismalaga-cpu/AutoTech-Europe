@@ -1393,7 +1393,9 @@ def evidence_for_vehicle(vehicle_id:str, category:str=""):
 
 
 @app.get("/api/technical/{vehicle_id:path}")
-def technical(vehicle_id:str, category:str=Query("")):
+def technical(vehicle_id:str, category:str=Query(""), year:int|None=None):
+    if year is not None and not 1886 <= year <= 2100:
+        raise HTTPException(status_code=422, detail="El año debe estar entre 1886 y 2100.")
     profile=find_technical_profile(vehicle_id,category)
     profile_id=profile.get("profile_vehicle_id") or vehicle_id
     c=db()
@@ -1417,8 +1419,16 @@ def technical(vehicle_id:str, category:str=Query("")):
                  ON sd.variant_id=tr.variant_id AND sd.url=tr.source_url
                WHERE (tr.variant_id=? OR (tr.variant_id IS NULL AND tr.vehicle_id=?))
                  AND tr.category=?
+                 AND (
+                   ? IS NULL OR (
+                     tr.applicable_from IS NOT NULL AND tr.applicable_from <> ''
+                     AND tr.applicable_to IS NOT NULL AND tr.applicable_to <> ''
+                     AND CAST(tr.applicable_from AS INTEGER) <= ?
+                     AND CAST(tr.applicable_to AS INTEGER) >= ?
+                   )
+                 )
                ORDER BY tr.id""",
-            (variant_id,profile_id,category)
+            (variant_id,profile_id,category,year,year,year)
         ).fetchall()
     else:
         rows=c.execute(
@@ -1436,8 +1446,16 @@ def technical(vehicle_id:str, category:str=Query("")):
                LEFT JOIN source_documents sd
                  ON sd.variant_id=tr.variant_id AND sd.url=tr.source_url
                WHERE (tr.variant_id=? OR (tr.variant_id IS NULL AND tr.vehicle_id=?))
+                 AND (
+                   ? IS NULL OR (
+                     tr.applicable_from IS NOT NULL AND tr.applicable_from <> ''
+                     AND tr.applicable_to IS NOT NULL AND tr.applicable_to <> ''
+                     AND CAST(tr.applicable_from AS INTEGER) <= ?
+                     AND CAST(tr.applicable_to AS INTEGER) >= ?
+                   )
+                 )
                ORDER BY tr.category,tr.id""",
-            (variant_id,profile_id)
+            (variant_id,profile_id,year,year,year)
         ).fetchall()
     c.close()
     return [dict(r) for r in rows]

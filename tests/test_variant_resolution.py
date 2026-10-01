@@ -278,6 +278,20 @@ class VariantResolutionRegression(unittest.TestCase):
         self.assertEqual(rows[0]["document_section"], "Wheels")
         self.assertEqual(rows[0]["applicability"], "SG2 HEV 2024 ES/EU")
 
+    def test_technical_filters_records_by_explicit_applicability_year(self):
+        rows_2024 = main.technical("test/kia-niro-sg2-hev", "torque", 2024)
+        self.assertTrue(any(x["field"] == "Tuercas de rueda test" for x in rows_2024))
+
+        rows_2025 = main.technical("test/kia-niro-sg2-hev", "torque", 2025)
+        self.assertFalse(any(x["field"] == "Tuercas de rueda test" for x in rows_2025))
+
+        # Sin año solicitado se conserva el comportamiento existente: devolver
+        # los registros de la variante y dejar la aplicabilidad visible.
+        rows_all = main.technical("test/kia-niro-sg2-hev", "torque")
+        row = next(x for x in rows_all if x["field"] == "Tuercas de rueda test")
+        self.assertEqual(row["applicable_from"], "2024")
+        self.assertEqual(row["applicable_to"], "2024")
+
     def test_technical_exposes_source_document_metadata(self):
         c = main.db()
         c.execute(
