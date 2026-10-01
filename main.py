@@ -63,7 +63,7 @@ def db():
 
 def _init_postgres_db():
     c = db()
-    c.execute("""
+    ddl = """
     CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
     CREATE TABLE IF NOT EXISTS vehicles(
       id TEXT PRIMARY KEY, make TEXT NOT NULL, model TEXT NOT NULL, kind TEXT,
@@ -111,7 +111,11 @@ def _init_postgres_db():
       FOREIGN KEY(variant_id) REFERENCES vehicle_variants(variant_id)
     );
     CREATE INDEX IF NOT EXISTS idx_vehicle_variant_map_variant ON vehicle_variant_map(variant_id);
-    """)
+    """
+    for statement in ddl.split(";"):
+        statement = statement.strip()
+        if statement:
+            c.execute(statement)
     c.commit()
     c.close()
 
