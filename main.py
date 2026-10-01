@@ -1393,7 +1393,9 @@ def evidence_for_vehicle(vehicle_id:str, category:str=""):
 
 
 @app.get("/api/technical/{vehicle_id:path}")
-def technical(vehicle_id:str, category:str=Query(""), year:int|None=Query(None, ge=1886, le=2100)):
+def technical(vehicle_id:str, category:str=Query(""), year:int|None=None):
+    if year is not None and not 1886 <= year <= 2100:
+        raise HTTPException(status_code=422, detail="El año debe estar entre 1886 y 2100.")
     profile=find_technical_profile(vehicle_id,category)
     profile_id=profile.get("profile_vehicle_id") or vehicle_id
     c=db()
