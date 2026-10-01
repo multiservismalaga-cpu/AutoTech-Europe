@@ -37,6 +37,26 @@ class PostgreSQLBackendSmoke(unittest.TestCase):
             document_id,
         )
 
+    def test_vin_round_trip_and_upsert(self):
+        first = main.save_vin({"vin": "KMHHA8110SU155502", "vehicle_id": "car/hyundai/kona-sx2-hev-2025"})
+        self.assertTrue(first["ok"])
+        found = main.get_vin("KMHHA8110SU155502")
+        self.assertEqual(found["vehicle_id"], "car/hyundai/kona-sx2-hev-2025")
+        second = main.save_vin({"vin": "KMHHA8110SU155502", "vehicle_id": "car/kia/niro-sg2-hev-2024"})
+        self.assertTrue(second["ok"])
+        self.assertEqual(main.get_vin("KMHHA8110SU155502")["vehicle_id"], "car/kia/niro-sg2-hev-2024")
+
+    def test_meta_upsert(self):
+        main.meta_set("postgres_smoke", "one")
+        self.assertEqual(main.meta_get("postgres_smoke"), "one")
+        main.meta_set("postgres_smoke", "two")
+        self.assertEqual(main.meta_get("postgres_smoke"), "two")
+
+    def test_invalid_technical_year_is_rejected(self):
+        with self.assertRaises(main.HTTPException) as ctx:
+            main.technical("car/kia/niro-sg2-hev-2024", year=2101)
+        self.assertEqual(ctx.exception.status_code, 422)
+
     def test_technical_record_round_trip(self):
         c = main.db()
         c.execute(
