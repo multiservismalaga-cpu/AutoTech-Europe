@@ -292,6 +292,43 @@ class VariantResolutionRegression(unittest.TestCase):
         self.assertEqual(row["applicable_from"], "2024")
         self.assertEqual(row["applicable_to"], "2024")
 
+    def test_technical_does_not_fallback_from_vehicle_to_unresolved_variant(self):
+        c = main.db()
+        c.execute(
+            """INSERT INTO technical_records(
+                 vehicle_id,variant_id,category,field,value,unit,source_title,source_url,
+                 source_class,confidence,applicable_from,applicable_to,notes,created_at
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "test/unresolved-vehicle",
+                None,
+                "torque",
+                "Legacy vehicle-only value",
+                "123",
+                "Nm",
+                "Legacy test",
+                "https://example.invalid/legacy-vehicle",
+                "TEST",
+                "CONTRASTADO",
+                "2024",
+                "2024",
+                "test",
+                "2026-10-01T00:00:00+00:00",
+            ),
+        )
+        c.commit()
+        c.close()
+        c = main.db()
+        c.execute(
+            """INSERT OR REPLACE INTO vehicles
+               (id,make,model,kind,body_types,years,availability,popularity,sources,raw_json)
+               VALUES(?,?,?,?,?,?,?,?,?,?)""",
+            ("test/unresolved-vehicle","Kia","Niro SG2 HEV","car","","2024-2026",'["ES","EU"]',"test","{}"),
+        )
+        c.commit()
+        c.close()
+        self.assertEqual(main.technical("test/unresolved-vehicle", "torque"), [])
+
     def test_technical_exposes_source_document_metadata(self):
         c = main.db()
         c.execute(
