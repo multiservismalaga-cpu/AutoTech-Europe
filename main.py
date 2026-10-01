@@ -545,7 +545,7 @@ def refresh_database(force=True):
                 "availability":avail
             }
             c.execute(
-                "INSERT OR REPLACE INTO vehicles VALUES(?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO vehicles (id,make,model,kind,body_types,years,availability,popularity,sources,raw_json) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET make=excluded.make,model=excluded.model,kind=excluded.kind,body_types=excluded.body_types,years=excluded.years,availability=excluded.availability,popularity=excluded.popularity,sources=excluded.sources,raw_json=excluded.raw_json",
                 (row["id"],make,row["name"],row["kind"],body,
                  None,json.dumps(avail,ensure_ascii=False),
                  json.dumps(row["global_popularity_decile"],ensure_ascii=False),
@@ -582,9 +582,14 @@ def ensure_seed_vehicle():
     row=c.execute("SELECT 1 FROM vehicles WHERE id=?",("car/bmw/3-series-320d",)).fetchone()
     if not row:
         raw={"id":"car/bmw/3-series-320d","name":"3 Series 320d","body_types":["sedan"],"years":"2018–2020","source":"BMW public press documentation"}
-        c.execute("""INSERT OR REPLACE INTO vehicles
+        c.execute("""INSERT INTO vehicles
           (id,make,model,kind,body_types,years,availability,popularity,sources,raw_json)
-          VALUES(?,?,?,?,?,?,?,?,?,?)""",
+          VALUES(?,?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(id) DO UPDATE SET
+            make=excluded.make,model=excluded.model,kind=excluded.kind,
+            body_types=excluded.body_types,years=excluded.years,
+            availability=excluded.availability,popularity=excluded.popularity,
+            sources=excluded.sources,raw_json=excluded.raw_json""",
           ("car/bmw/3-series-320d","BMW","3 Series 320d","car","Sedan","2018–2020","[\"ES\",\"DE\",\"GB\"]","verified-seed",
            "BMW public press documentation",json.dumps(raw,ensure_ascii=False)))
         c.commit()
@@ -830,9 +835,14 @@ def ensure_seed_kia_niro_vehicle():
             "years": "2022–2026",
             "source": "Kia public documentation"
         }
-        c.execute("""INSERT OR REPLACE INTO vehicles
+        c.execute("""INSERT INTO vehicles
           (id,make,model,kind,body_types,years,availability,popularity,sources,raw_json)
-          VALUES(?,?,?,?,?,?,?,?,?,?)""",
+          VALUES(?,?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(id) DO UPDATE SET
+            make=excluded.make,model=excluded.model,kind=excluded.kind,
+            body_types=excluded.body_types,years=excluded.years,
+            availability=excluded.availability,popularity=excluded.popularity,
+            sources=excluded.sources,raw_json=excluded.raw_json""",
           (vehicle_id,"Kia","Niro SG2 HEV","car","SUV","2022–2026",
            "[\"ES\",\"EU\"]","verified-seed",
            "Kia public documentation",json.dumps(raw,ensure_ascii=False)))
