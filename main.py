@@ -427,17 +427,25 @@ def find_technical_profile(vehicle_id, category=""):
     exact_row=c.execute(
         """SELECT variant_id
            FROM technical_records
-           WHERE vehicle_id=?
-           ORDER BY CASE WHEN variant_id IS NULL THEN 1 ELSE 0 END, id
+           WHERE vehicle_id=? AND variant_id IS NOT NULL AND variant_id <> ''
+           ORDER BY id
            LIMIT 1""",
         (vehicle_id,)
     ).fetchone()
     if exact_row:
-        exact_variant=exact_row["variant_id"] or vehicle_id
+        exact_variant=exact_row["variant_id"]
         c.close()
         return {"profile_vehicle_id":exact_variant,"variant_id":exact_variant,
                 "match":"exact","reason":"exact_technical_records"}
     raw=ctx.get("raw") or {}
+    # Marca/modelo identifican el vehículo de catálogo, no una variante
+    # técnica suficiente. Exigimos al menos una señal adicional antes de
+    # heredar datos técnicos de una variante canónica.
+    variant_signal_keys=("year","model_year","engine","engine_name","engine_code",
+                         "transmission","drive","fuel","market")
+    if not any(raw.get(key) for key in variant_signal_keys):
+        c.close()
+        return {"profile_vehicle_id":None,"match":"none","reason":"insufficient_variant_signals"}
     resolved=resolve_variant_signals({
         "make":ctx.get("make"),"model":ctx.get("model"),
         "year":raw.get("year") or raw.get("model_year"),
@@ -1399,9 +1407,12 @@ def technical(vehicle_id:str, category:str=Query(""), year:int|None=None):
     profile=find_technical_profile(vehicle_id,category)
     profile_id=profile.get("profile_vehicle_id") or vehicle_id
     c=db()
-    # La variante canónica es la clave primaria lógica de los datos técnicos.
-    # vehicle_id queda como fallback para registros heredados durante la migración.
-    variant_id=profile.get("variant_id") or profile_id
+    # Los datos técnicos solo se sirven cuando existe una variante canónica.
+    # vehicle_id no puede actuar como sustituto de variant_id.
+    variant_id=profile.get("variant_id")
+    if not variant_id:
+        c.close()
+        return []
     if category:
         rows=c.execute(
             """SELECT tr.*,
@@ -1417,7 +1428,7 @@ def technical(vehicle_id:str, category:str=Query(""), year:int|None=None):
                FROM technical_records tr
                LEFT JOIN source_documents sd
                  ON sd.variant_id=tr.variant_id AND sd.url=tr.source_url
-               WHERE (tr.variant_id=? OR (tr.variant_id IS NULL AND tr.vehicle_id=?))
+               WHERE tr.variant_id=?
                  AND tr.category=?
                  AND (
                    ? IS NULL OR (
@@ -1428,7 +1439,7 @@ def technical(vehicle_id:str, category:str=Query(""), year:int|None=None):
                    )
                  )
                ORDER BY tr.id""",
-            (variant_id,profile_id,category,year,year,year)
+            (variant_id,category,year,year,year)
         ).fetchall()
     else:
         rows=c.execute(
@@ -1445,7 +1456,7 @@ def technical(vehicle_id:str, category:str=Query(""), year:int|None=None):
                FROM technical_records tr
                LEFT JOIN source_documents sd
                  ON sd.variant_id=tr.variant_id AND sd.url=tr.source_url
-               WHERE (tr.variant_id=? OR (tr.variant_id IS NULL AND tr.vehicle_id=?))
+               WHERE tr.variant_id=?
                  AND (
                    ? IS NULL OR (
                      tr.applicable_from IS NOT NULL AND tr.applicable_from <> ''
@@ -1455,7 +1466,7 @@ def technical(vehicle_id:str, category:str=Query(""), year:int|None=None):
                    )
                  )
                ORDER BY tr.category,tr.id""",
-            (variant_id,profile_id,year,year,year)
+            (variant_id,year,year,year)
         ).fetchall()
     c.close()
     return [dict(r) for r in rows]
