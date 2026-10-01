@@ -4,6 +4,12 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from datetime import datetime, timezone
 import json, os, re, sqlite3, threading, urllib.parse, urllib.request, webbrowser
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:
+    psycopg = None
+    dict_row = None
 from datetime import timedelta
 from html.parser import HTMLParser
 import uvicorn
