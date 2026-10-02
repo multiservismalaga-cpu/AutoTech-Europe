@@ -665,6 +665,34 @@ function renderDiagnosisRows(rows) {
   const web=$("#webresults"); if(web) web.classList.add("hidden");
 }
 
+function renderTimingRows(rows) {
+  const groups={};
+  rows.forEach(x => {
+    const f=String(x.field || "").toLowerCase();
+    let key="Distribución";
+    if (/cadena|chain/.test(f)) key="Cadena";
+    else if (/correa|belt/.test(f)) key="Correa";
+    else if (/tensi[oó]n|tensor|tensioner/.test(f)) key="Tensores / tensión";
+    else if (/marca|mark|punto|timing|calado|proced/.test(f)) key="Calado / procedimiento";
+    else if (/interval|sustitu|replace|inspec/.test(f)) key="Intervalos / inspección";
+    (groups[key] ||= []).push(x);
+  });
+  const body='<p class="small">Datos de distribución asociados exclusivamente a la variante seleccionada. Se muestran únicamente componentes, procedimientos, intervalos y condiciones documentados.</p>'+
+    '<div class="timing-legend"><span><b>'+rows.length+'</b> registros</span><span>Procedimiento documentado</span><span>Aplicación de la fuente</span></div>'+
+    '<div class="timing-groups">'+Object.entries(groups).map(([name,list])=>
+      '<section class="timing-group"><div class="module-data-group-head"><b>'+esc(name)+'</b><span>'+list.length+'</span></div>'+
+      '<div class="timing-list">'+list.map(x=>
+        '<article class="timing-row"><div class="timing-main"><b>'+esc(x.field)+'</b><span>'+esc(x.value || "—")+(x.unit?" "+esc(x.unit):"")+'</span>'+
+        (x.notes?'<small class="module-note">'+esc(x.notes)+'</small>':'')+
+        '</div><div class="timing-source"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+'</a><br>'+
+        esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+        (x.applicable_from || x.applicable_to?'<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+        '</div></article>').join("")+'</div></section>'
+    ).join("")+'</div>';
+  renderModuleContent("timing","Distribución",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
 function renderTorqueRows(rows) {
   const groups={};
   rows.forEach(x => {
@@ -694,6 +722,10 @@ function renderTorqueRows(rows) {
 }
 
 function renderTechnicalRows(category, rows) {
+  if (category === "timing") {
+    renderTimingRows(rows);
+    return;
+  }
   if (category === "torque") {
     renderTorqueRows(rows);
     return;
