@@ -665,6 +665,33 @@ function renderDiagnosisRows(rows) {
   const web=$("#webresults"); if(web) web.classList.add("hidden");
 }
 
+function renderOemRows(rows) {
+  const groups={};
+  rows.forEach(x => {
+    const f=String(x.field || "").toLowerCase();
+    let key="Referencias";
+    if (/oem|referencia|part.?number|pieza|n[uú]mero/.test(f)) key="Referencias OEM";
+    else if (/componente|component|pieza|description|descripci[oó]n/.test(f)) key="Componentes";
+    else if (/aplic|fitment|compat|modelo|model|motor|engine/.test(f)) key="Aplicación";
+    else if (/equiv|cross|sustit|replacement|supersed/.test(f)) key="Equivalencias documentadas";
+    (groups[key] ||= []).push(x);
+  });
+  const body='<p class="small">Referencias OEM y aplicaciones asociadas exclusivamente a la variante seleccionada. Una referencia compartida no se interpreta como compatibilidad universal.</p>'+
+    '<div class="oem-legend"><span><b>'+rows.length+'</b> registros</span><span>Referencia documentada</span><span>Aplicación específica</span></div>'+
+    '<div class="oem-groups">'+Object.entries(groups).map(([name,list])=>
+      '<section class="oem-group"><div class="module-data-group-head"><b>'+esc(name)+'</b><span>'+list.length+'</span></div>'+
+      '<div class="oem-list">'+list.map(x=>
+        '<article class="oem-row"><div class="oem-main"><b>'+esc(x.field)+'</b><span>'+esc(x.value || "—")+(x.unit?" "+esc(x.unit):"")+'</span>'+
+        (x.notes?'<small class="module-note">'+esc(x.notes)+'</small>':'')+
+        '</div><div class="oem-source"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+'</a><br>'+
+        esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+        (x.applicable_from || x.applicable_to?'<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+        '</div></article>').join("")+'</div></section>'
+    ).join("")+'</div>';
+  renderModuleContent("oem","OEM / referencias",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
 function renderFuseRows(rows) {
   const groups={};
   rows.forEach(x => {
@@ -779,6 +806,10 @@ function renderTorqueRows(rows) {
 }
 
 function renderTechnicalRows(category, rows) {
+  if (category === "oem") {
+    renderOemRows(rows);
+    return;
+  }
   if (category === "fuses") {
     renderFuseRows(rows);
     return;
