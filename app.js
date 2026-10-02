@@ -410,6 +410,7 @@ function renderModuleSidebar(data) {
 function renderModuleContent(category,title,body,state) {
   const box=$("#moduleContent");
   if(!box) return;
+  activateModuleCategory(category);
   box.innerHTML='<div class="module-content-head"><div><div class="eyebrow">MÓDULO DE TALLER</div><h3>' +
     esc(title || category) + '</h3></div><span class="status-chip">' + esc(state || "CARGANDO") +
     '</span></div>' + body;
@@ -490,12 +491,19 @@ async function saveVin() {
   }
 }
 
+function activateModuleCategory(category) {
+  document.querySelectorAll("#moduleSidebarList .module-side-item").forEach((b) => {
+    b.classList.toggle("active", b.dataset.category === category);
+  });
+}
+
 async function researchCategory(category) {
   const base = selected || {};
   if (!base.id) {
     showStatus("Selecciona primero un vehículo.");
     return;
   }
+  activateModuleCategory(category);
   try {
     const rows = await api("/api/technical/" + encodeURIComponent(base.id) +
       "?category=" + encodeURIComponent(category));
