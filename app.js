@@ -525,26 +525,16 @@ async function researchCategory(category) {
 
 function renderEvidenceRows(category, rows) {
   const title=(modules.find(m=>m[1]===category)||[category])[0];
-  const body='<p class="small">Evidencia pública almacenada y asociada a esta variante. No se presenta como dato OEM confirmado.</p>' + rows.map((x) => '<div class="evidence"><a class="source" target="_blank" rel="noopener" href="' + esc(x.document_url || x.url || "#") + '">' + esc(x.document_title || x.title || x.url || "Fuente") + '</a><div class="small">' + esc(x.document_source_class || x.source_class || "") + '</div><p class="small">' + esc(x.snippet || x.applicability || x.document_section || "Evidencia asociada a la variante.") + '</p></div>').join("");
-  renderModuleContent(category,title,body,"EVIDENCIA WEB");
-  $("#webresults").classList.remove("hidden");
-  $("#webresults").innerHTML =
-    '<div class="module-nav"><button id="backDetail" class="secondary">← Volver a ficha</button>' +
-    '<div class="nav-crumb">Vehículo seleccionado / evidencia almacenada</div><button id="moduleTop" class="secondary">↑ Arriba</button></div>' +
-    '<div class="eyebrow">EVIDENCIA WEB ALMACENADA</div><h3>' +
-    esc(category.replace(/\b\w/g, (c) => c.toUpperCase())) +
-    '</h3><p class="small">Evidencia previamente contrastada y asociada a esta variante. Se mantiene separada de los datos técnicos confirmados.</p>' +
+  const body='<p class="small">Evidencia pública almacenada y asociada a esta variante. No se presenta como dato OEM confirmado.</p>' +
     rows.map((x) =>
       '<div class="evidence"><a class="source" target="_blank" rel="noopener" href="' +
       esc(x.document_url || x.url || "#") + '">' + esc(x.document_title || x.title || x.url || "Fuente") +
       '</a><div class="small">' + esc(x.document_source_class || x.source_class || "") + '</div>' +
       '<p class="small">' + esc(x.snippet || x.applicability || x.document_section || "Evidencia asociada a la variante.") + '</p></div>'
     ).join("");
-  $("#backDetail").onclick = () => {
-    $("#webresults").classList.add("hidden");
-    $("#detail").scrollIntoView({behavior:"smooth"});
-  };
-  $("#moduleTop").onclick = () => window.scrollTo({top:0,behavior:"smooth"});
+  renderModuleContent(category,title,body,"EVIDENCIA WEB");
+  const web = $("#webresults");
+  if (web) web.classList.add("hidden");
 }
 
 function technicalModuleMeta(category) {
@@ -604,35 +594,16 @@ function renderTechnicalRows(category, rows) {
         '</div></div>').join("") + '</div></section>'
     ).join("") + '</div>';
   renderModuleContent(category,meta[0],body,"CONTRASTADO");
-  $("#webresults").classList.remove("hidden");
-  $("#webresults").innerHTML =
-    '<div class="module-nav"><button id="backDetail" class="secondary">← Volver a ficha</button>' +
-    '<div class="nav-crumb">Vehículo seleccionado / módulo técnico</div><button id="moduleTop" class="secondary">↑ Arriba</button></div>' +
-    '<div class="eyebrow">DATOS TÉCNICOS CONTRASTADOS</div><h3>' + esc(meta[0]) + '</h3>' +
-    '<p class="small">' + esc(meta[1]) + ' Solo se muestran registros asociados a una variante y fuente concreta; no se mezclan versiones.</p>' +
-    '<span class="module-data-count">' + rows.length + ' registros contrastados</span>' +
-    '<div class="module-data-groups">' + Object.entries(groups).map(([group, items]) =>
-      '<section class="module-data-group"><div class="module-data-group-head"><b>' + esc(group) +
-      '</b><span>' + items.length + '</span></div><div class="module-records">' +
-      items.map(x => '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' +
-        esc(x.value || "") + (x.unit ? " " + esc(x.unit) : "") + '</span>' +
-        (x.notes ? '<small class="module-note">' + esc(x.notes) + '</small>' : '') +
-        '</div><div class="small"><a class="source" target="_blank" rel="noopener" href="' +
-        esc(x.source_url || "#") + '">' + esc(x.source_title || "Fuente técnica") +
-        '</a><br>' + esc(x.source_class || "") + ' · ' + esc(x.confidence || "") +
-        ' · ' + esc(x.applicable_from || "") + '–' + esc(x.applicable_to || "") +
-        '</div></div>').join("") + '</div></section>'
-    ).join("") + '</div>';
-  $("#backDetail").onclick = () => {
-    $("#webresults").classList.add("hidden");
-    $("#detail").scrollIntoView({behavior:"smooth"});
-  };
-  $("#moduleTop").onclick = () => window.scrollTo({top:0,behavior:"smooth"});
+  const web = $("#webresults");
+  if (web) web.classList.add("hidden");
 }
 
 async function runResearch(payload) {
-  $("#webresults").classList.remove("hidden");
-  $("#webresults").innerHTML = "<b>Buscando evidencia pública…</b>";
+  const web = $("#webresults");
+  if (web) {
+    web.classList.remove("hidden");
+    web.innerHTML = "<b>Buscando evidencia pública…</b>";
+  }
   try {
     const r = await api("/api/research", {
       method:"POST",
@@ -649,21 +620,18 @@ async function runResearch(payload) {
       esc(x.source_class) + ' · ' + esc(x.confidence) + '</div><p class="small">' +
       esc(x.snippet || "Sin extracto") + '</p></div>'
     ).join("");
-    const moduleMeta = modules.find(m => m[1] === payload.category) || [payload.category || "Evidencia técnica", payload.category || "", ""];
-    renderModuleContent(payload.category || "", moduleMeta[0], '<p class="small">Resultados públicos recién consultados para la variante seleccionada. Quedan almacenados como evidencia pendiente de contraste.</p>' + results, "EVIDENCIA WEB");
-    $("#webresults").innerHTML =
-      '<div class="module-nav"><button id="backDetail" class="secondary">← Volver a ficha</button>' +
-      '<div class="nav-crumb">Vehículo seleccionado / módulo técnico</div><button id="moduleTop" class="secondary">↑ Arriba</button></div>' +
-      '<div class="eyebrow">EVIDENCIA WEB</div><h3>' + esc(r.query || "") + '</h3><p class="small">' +
-      'Módulo: ' + esc(title) + ' · Los resultados son evidencia para contraste, no sustituyen documentación OEM o datos licenciados.</p>' +
-      (results || "<p>No se encontraron resultados públicos.</p>");
-    $("#backDetail").onclick = () => {
-      $("#webresults").classList.add("hidden");
-      $("#detail").scrollIntoView({behavior:"smooth"});
-    };
-    $("#moduleTop").onclick = () => window.scrollTo({top:0,behavior:"smooth"});
+    const moduleMeta = modules.find(m => m[1] === payload.category) ||
+      [payload.category || "Evidencia técnica", payload.category || "", ""];
+    renderModuleContent(
+      payload.category || "",
+      moduleMeta[0],
+      '<p class="small">Resultados públicos recién consultados para la variante seleccionada. Quedan almacenados como evidencia pendiente de contraste.</p>' +
+      (results || "<p>No se encontraron resultados públicos.</p>"),
+      "EVIDENCIA WEB"
+    );
+    if (web) web.classList.add("hidden");
   } catch (e) {
-    $("#webresults").innerHTML = "<b>No se pudo consultar Internet.</b><p>" + esc(e.message) + "</p>";
+    if (web) web.innerHTML = "<b>No se pudo consultar Internet.</b><p>" + esc(e.message) + "</p>";
   }
 }
 
