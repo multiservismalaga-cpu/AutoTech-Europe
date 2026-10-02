@@ -633,7 +633,43 @@ function renderMaintenanceRows(rows) {
   if(web) web.classList.add("hidden");
 }
 
+function diagnosisFieldKind(field) {
+  const f=String(field || "").toLowerCase();
+  if (/c[oó]digo|dtc|error|fault/.test(f)) return "code";
+  if (/s[ií]ntoma|symptom|queja|problema/.test(f)) return "symptom";
+  if (/prueba|test|medici[oó]n|measure|proced/.test(f)) return "test";
+  if (/valor|volt|presi[oó]n|resistencia|temperatura|rpm|ohm|amp|bar/.test(f)) return "value";
+  return "other";
+}
+
+function renderDiagnosisRows(rows) {
+  const buckets={code:[],symptom:[],test:[],value:[],other:[]};
+  rows.forEach(x => buckets[diagnosisFieldKind(x.field)].push(x));
+  const labels={code:"Códigos / DTC",symptom:"Síntomas",test:"Pruebas y procedimientos",value:"Valores de prueba",other:"Datos de diagnóstico"};
+  const order=["code","symptom","test","value","other"];
+  const sections=order.filter(k=>buckets[k].length).map(k=>
+    '<section class="diagnosis-group"><div class="module-data-group-head"><b>'+labels[k]+'</b><span>'+buckets[k].length+'</span></div><div class="diagnosis-list">'+
+    buckets[k].map(x=>
+      '<article class="diagnosis-item"><div><b>'+esc(x.field)+'</b><span>'+esc(x.value || "")+(x.unit ? " "+esc(x.unit):"")+'</span>'+
+      (x.notes ? '<small class="module-note">'+esc(x.notes)+'</small>':'')+
+      '</div><div class="diagnosis-source small"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+
+      '</a><br>'+esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+      (x.applicable_from || x.applicable_to ? '<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+      '</div></article>'
+    ).join("")+'</div></section>'
+  ).join("");
+  const body='<p class="small">Registros de diagnosis asociados exclusivamente a la variante seleccionada. No se generan códigos, síntomas ni valores que no estén documentados.</p>'+
+    '<div class="diagnosis-legend"><span><b>'+rows.length+'</b> registros disponibles</span><span>Solo datos documentados</span></div>'+
+    '<div class="diagnosis-groups">'+(sections || '<p class="small">No hay campos de diagnosis suficientemente estructurados.</p>')+'</div>';
+  renderModuleContent("diagnosis","Diagnosis",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
 function renderTechnicalRows(category, rows) {
+  if (category === "diagnosis") {
+    renderDiagnosisRows(rows);
+    return;
+  }
   if (category === "maintenance") {
     renderMaintenanceRows(rows);
     return;
