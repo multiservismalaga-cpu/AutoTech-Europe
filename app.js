@@ -539,24 +539,82 @@ function renderEvidenceRows(category, rows) {
   $("#moduleTop").onclick = () => window.scrollTo({top:0,behavior:"smooth"});
 }
 
+function technicalModuleMeta(category) {
+  const meta = {
+    "technical specifications":["Datos técnicos de la variante","Motor, configuración, prestaciones y arquitectura documentadas."],
+    maintenance:["Esquema de mantenimiento","Intervalos, inspecciones y sustituciones con su periodo de aplicación."],
+    timing:["Distribución","Cadena/correa, componentes asociados y procedimientos documentados."],
+    torque:["Pares de apriete","Pares, ángulos y condiciones de apriete documentados."],
+    lubricants:["Fluidos y especificaciones","Aceites, refrigerantes, capacidades y normas de fluido."],
+    diagnosis:["Diagnosis","Códigos, síntomas, pruebas y valores de diagnóstico disponibles."],
+    drawings:["Esquemas","Esquemas y documentación de componentes o circuitos."],
+    fuses:["Caja y posiciones","Ubicación de cajas, posiciones y funciones de fusibles."],
+    oem:["Referencias del fabricante","Referencias OEM y su aplicación documentada."],
+    "repair manuals":["Procedimientos de reparación","Manuales y procedimientos de reparación asociados."],
+    "engine management":["Gestión del motor","Sistemas de gestión, control y diagnóstico del motor."],
+    "comfort electronics":["Electrónica de confort","Sistemas de carrocería, confort y electrónica asociada."],
+    "repair times":["Operaciones y tiempos","Operaciones y tiempos de reparación documentados."],
+    recalls:["Campañas de reparación","Recalls y campañas documentadas para la variante."],
+    "smart fix":["Casos y soluciones","Casos técnicos y soluciones documentadas."],
+    "cost estimate":["Base de presupuesto","Estructura para presupuestos; no inventa precios."]
+  };
+  return meta[category] || ["Datos técnicos","Registros técnicos asociados a la variante seleccionada."];
+}
+
+function technicalGroupKey(category, field) {
+  const f = String(field || "").toLowerCase();
+  if (category === "maintenance") return /interval|mantenimiento|sustitu|inspecc|aceite|filtro|buj|refrigerante|líquido/.test(f) ? "Intervalos y operaciones" : "Mantenimiento";
+  if (category === "lubricants") return /aceite|líquido|fluido|refriger|capacidad|especific|viscos/.test(f) ? "Fluidos y especificaciones" : "Aplicación";
+  if (category === "torque") return /par|apriete|tornillo|tuerca|ángulo/.test(f) ? "Pares de apriete" : "Condiciones";
+  if (category === "timing") return /cadena|correa|tensor|distrib|proced/.test(f) ? "Distribución" : "Procedimiento";
+  if (category === "diagnosis") return /código|error|síntoma|prueba|valor|diagn/.test(f) ? "Diagnosis" : "Datos de prueba";
+  if (category === "fuses") return /fusible|posición|caja|función/.test(f) ? "Caja y posiciones" : "Funciones";
+  if (category === "oem") return /oem|referencia|código|pieza/.test(f) ? "Referencias" : "Aplicación";
+  if (category === "repair times") return /tiempo|operación|hora|mano/.test(f) ? "Operaciones y tiempos" : "Aplicación";
+  return "Datos documentados";
+}
+
 function renderTechnicalRows(category, rows) {
-  const title=(modules.find(m=>m[1]===category)||[category])[0];
-  const body='<p class="small">Datos técnicos asociados directamente a la variante seleccionada. Cada fila conserva su fuente y periodo de aplicación.</p>' + rows.map((x) => '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' + esc(x.value) + (x.unit ? " " + esc(x.unit) : "") + '</span></div><div class="small"><a class="source" target="_blank" rel="noopener" href="' + esc(x.source_url) + '">' + esc(x.source_title) + '</a><br>' + esc(x.source_class) + " · " + esc(x.confidence) + " · " + esc(x.applicable_from || "") + "–" + esc(x.applicable_to || "") + '</div></div>').join("");
-  renderModuleContent(category,title,body,"CONTRASTADO");
+  const meta = technicalModuleMeta(category);
+  const groups = {};
+  rows.forEach(x => {
+    const key = technicalGroupKey(category, x.field);
+    (groups[key] ||= []).push(x);
+  });
+  const body = '<p class="small">' + esc(meta[1]) + ' Cada registro conserva fuente, nivel de contraste y periodo de aplicación.</p>' +
+    '<span class="module-data-count">' + rows.length + ' registros contrastados</span>' +
+    '<div class="module-data-groups">' + Object.entries(groups).map(([group, items]) =>
+      '<section class="module-data-group"><div class="module-data-group-head"><b>' + esc(group) +
+      '</b><span>' + items.length + '</span></div><div class="module-records">' +
+      items.map(x => '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' +
+        esc(x.value || "") + (x.unit ? " " + esc(x.unit) : "") + '</span>' +
+        (x.notes ? '<small class="module-note">' + esc(x.notes) + '</small>' : '') +
+        '</div><div class="small"><a class="source" target="_blank" rel="noopener" href="' +
+        esc(x.source_url || "#") + '">' + esc(x.source_title || "Fuente técnica") +
+        '</a><br>' + esc(x.source_class || "") + ' · ' + esc(x.confidence || "") +
+        ' · ' + esc(x.applicable_from || "") + '–' + esc(x.applicable_to || "") +
+        '</div></div>').join("") + '</div></section>'
+    ).join("") + '</div>';
+  renderModuleContent(category,meta[0],body,"CONTRASTADO");
   $("#webresults").classList.remove("hidden");
   $("#webresults").innerHTML =
     '<div class="module-nav"><button id="backDetail" class="secondary">← Volver a ficha</button>' +
     '<div class="nav-crumb">Vehículo seleccionado / módulo técnico</div><button id="moduleTop" class="secondary">↑ Arriba</button></div>' +
-    '<div class="eyebrow">DATOS TÉCNICOS CONTRASTADOS</div><h3>' +
-    esc(category.replace(/\b\w/g, (c) => c.toUpperCase())) +
-    '</h3><p class="small">Solo se muestran datos asociados a una variante y fuente concreta. No se mezclan versiones.</p>' +
-    rows.map((x) =>
-      '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' + esc(x.value) +
-      (x.unit ? ' ' + esc(x.unit) : '') + '</span></div><div class="small"><a class="source" target="_blank" rel="noopener" href="' +
-      esc(x.source_url) + '">' + esc(x.source_title) + '</a><br>' + esc(x.source_class) + ' · ' +
-      esc(x.confidence) + ' · ' + esc(x.applicable_from || '') + '–' + esc(x.applicable_to || '') +
-      '</div></div>'
-    ).join("");
+    '<div class="eyebrow">DATOS TÉCNICOS CONTRASTADOS</div><h3>' + esc(meta[0]) + '</h3>' +
+    '<p class="small">' + esc(meta[1]) + ' Solo se muestran registros asociados a una variante y fuente concreta; no se mezclan versiones.</p>' +
+    '<span class="module-data-count">' + rows.length + ' registros contrastados</span>' +
+    '<div class="module-data-groups">' + Object.entries(groups).map(([group, items]) =>
+      '<section class="module-data-group"><div class="module-data-group-head"><b>' + esc(group) +
+      '</b><span>' + items.length + '</span></div><div class="module-records">' +
+      items.map(x => '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' +
+        esc(x.value || "") + (x.unit ? " " + esc(x.unit) : "") + '</span>' +
+        (x.notes ? '<small class="module-note">' + esc(x.notes) + '</small>' : '') +
+        '</div><div class="small"><a class="source" target="_blank" rel="noopener" href="' +
+        esc(x.source_url || "#") + '">' + esc(x.source_title || "Fuente técnica") +
+        '</a><br>' + esc(x.source_class || "") + ' · ' + esc(x.confidence || "") +
+        ' · ' + esc(x.applicable_from || "") + '–' + esc(x.applicable_to || "") +
+        '</div></div>').join("") + '</div></section>'
+    ).join("") + '</div>';
   $("#backDetail").onclick = () => {
     $("#webresults").classList.add("hidden");
     $("#detail").scrollIntoView({behavior:"smooth"});
