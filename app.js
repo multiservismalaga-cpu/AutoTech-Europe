@@ -665,6 +665,35 @@ function renderDiagnosisRows(rows) {
   const web=$("#webresults"); if(web) web.classList.add("hidden");
 }
 
+function renderLubricantRows(rows) {
+  const groups={};
+  rows.forEach(x => {
+    const f=String(x.field || "").toLowerCase();
+    let key="Especificaciones de fluidos";
+    if (/aceite|oil|motor/.test(f)) key="Aceite de motor";
+    else if (/refriger|coolant|anticongel/.test(f)) key="Refrigerante";
+    else if (/freno|brake|dot/.test(f)) key="Líquido de frenos";
+    else if (/transm|dct|gear|cambio/.test(f)) key="Transmisión";
+    else if (/diferencial|differential/.test(f)) key="Diferencial";
+    else if (/embrague|clutch|actuator/.test(f)) key="Actuador / embrague";
+    (groups[key] ||= []).push(x);
+  });
+  const body='<p class="small">Lubricantes y fluidos asociados exclusivamente a la variante seleccionada. Se conserva la especificación, capacidad y unidad tal como aparecen documentadas.</p>'+
+    '<div class="fluid-legend"><span><b>'+rows.length+'</b> registros</span><span>Especificación documentada</span><span>Capacidad original</span></div>'+
+    '<div class="fluid-groups">'+Object.entries(groups).map(([name,list])=>
+      '<section class="fluid-group"><div class="module-data-group-head"><b>'+esc(name)+'</b><span>'+list.length+'</span></div>'+
+      '<div class="fluid-list">'+list.map(x=>
+        '<article class="fluid-row"><div class="fluid-main"><b>'+esc(x.field)+'</b><span>'+esc(x.value || "—")+(x.unit?" "+esc(x.unit):"")+'</span>'+
+        (x.notes?'<small class="module-note">'+esc(x.notes)+'</small>':'')+
+        '</div><div class="fluid-source"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+'</a><br>'+
+        esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+        (x.applicable_from || x.applicable_to?'<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+        '</div></article>').join("")+'</div></section>'
+    ).join("")+'</div>';
+  renderModuleContent("lubricants","Lubricantes y fluidos",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
 function renderTimingRows(rows) {
   const groups={};
   rows.forEach(x => {
@@ -722,6 +751,10 @@ function renderTorqueRows(rows) {
 }
 
 function renderTechnicalRows(category, rows) {
+  if (category === "lubricants") {
+    renderLubricantRows(rows);
+    return;
+  }
   if (category === "timing") {
     renderTimingRows(rows);
     return;
