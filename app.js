@@ -665,7 +665,39 @@ function renderDiagnosisRows(rows) {
   const web=$("#webresults"); if(web) web.classList.add("hidden");
 }
 
+function renderTorqueRows(rows) {
+  const groups={};
+  rows.forEach(x => {
+    const f=String(x.field || "").toLowerCase();
+    let key="Pares documentados";
+    if (/rueda|wheel|tuerca|lug/.test(f)) key="Ruedas / fijaciones";
+    else if (/motor|culata|cylinder|head|c[oó]rter|oil pan/.test(f)) key="Motor";
+    else if (/cambio|transm|gear|dct|tornillo|bolt|ground|masa/.test(f)) key="Transmisión / fijaciones";
+    else if (/freno|brake/.test(f)) key="Frenos";
+    else if (/egr|escape|exhaust|admisi[oó]n|intake/.test(f)) key="Admisión / escape";
+    (groups[key] ||= []).push(x);
+  });
+  const body='<p class="small">Pares de apriete asociados exclusivamente a la variante seleccionada. Se conserva el valor y la unidad documentados; no se convierten ni se calculan ángulos.</p>'+
+    '<div class="torque-legend"><span><b>'+rows.length+'</b> registros</span><span>Valor original</span><span>Condición documentada</span></div>'+
+    '<div class="torque-groups">'+Object.entries(groups).map(([name,list])=>
+      '<section class="torque-group"><div class="module-data-group-head"><b>'+esc(name)+'</b><span>'+list.length+'</span></div>'+
+      '<div class="torque-table"><div class="torque-head"><span>Componente / campo</span><span>Par</span><span>Condición / fuente</span></div>'+
+      list.map(x=>'<article class="torque-row"><div><b>'+esc(x.field)+'</b>'+(x.notes?'<small class="module-note">'+esc(x.notes)+'</small>':'')+'</div>'+
+      '<strong>'+esc(x.value || "—")+(x.unit?" "+esc(x.unit):"")+'</strong>'+
+      '<div class="torque-source"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+'</a><br>'+
+      esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+      (x.applicable_from || x.applicable_to?'<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+      '</div></article>').join("")+'</div></section>'
+    ).join("")+'</div>';
+  renderModuleContent("torque","Pares de apriete",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
 function renderTechnicalRows(category, rows) {
+  if (category === "torque") {
+    renderTorqueRows(rows);
+    return;
+  }
   if (category === "diagnosis") {
     renderDiagnosisRows(rows);
     return;
