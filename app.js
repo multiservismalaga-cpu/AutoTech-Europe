@@ -694,6 +694,37 @@ function renderEngineManagementRows(rows) {
   const web=$("#webresults"); if(web) web.classList.add("hidden");
 }
 
+function renderComfortElectronicsRows(rows) {
+  const groups={};
+  rows.forEach(x => {
+    const f=String(x.field || "").toLowerCase();
+    let key="Electrónica de confort";
+    if (/climat|hvac|aire acond|air.?con|calef|heater|blower/.test(f)) key="Climatización";
+    else if (/puerta|door|cierre|lock|cerradura|keyless|llave|central/.test(f)) key="Cierre / puertas";
+    else if (/eleval|window|ventan|mirror|espejo|asiento|seat/.test(f)) key="Cristales / asientos / espejos";
+    else if (/l[uú]z|light|far|headlamp|ilumin|intermit|lamp/.test(f)) key="Iluminación";
+    else if (/carrocer|body|bcm|unidad|module|control|comfort/.test(f)) key="Body / módulos de control";
+    else if (/radio|audio|infot|naveg|display|pantalla|multimedia/.test(f)) key="Infotainment / multimedia";
+    (groups[key] ||= []).push(x);
+  });
+  const body='<p class="small">Datos de electrónica de confort asociados exclusivamente a la variante seleccionada. Se muestran únicamente componentes, funciones y valores documentados.</p>'+
+    '<div class="comfort-legend"><span><b>'+rows.length+'</b> registros</span><span>Función documentada</span><span>Fuente trazable</span></div>'+
+    '<div class="comfort-groups">'+Object.entries(groups).map(([name,list])=>
+      '<section class="comfort-group"><div class="module-data-group-head"><b>'+esc(name)+'</b><span>'+list.length+'</span></div>'+
+      '<div class="comfort-table"><div class="comfort-head"><span>Elemento / función</span><span>Dato</span><span>Fuente</span></div>'+
+      list.map(x=>
+        '<article class="comfort-row"><div class="comfort-main"><b>'+esc(x.field)+'</b>'+
+        (x.notes?'<small class="module-note">'+esc(x.notes)+'</small>':'')+
+        '</div><strong>'+esc(x.value || "—")+(x.unit?" "+esc(x.unit):"")+'</strong>'+
+        '<div class="comfort-source"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+'</a><br>'+
+        esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+        (x.applicable_from || x.applicable_to?'<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+        '</div></article>').join("")+'</div></section>'
+    ).join("")+'</div>';
+  renderModuleContent("comfort electronics","Electrónica confort",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
 function renderRepairManualRows(rows) {
   const groups={};
   rows.forEach(x => {
@@ -865,6 +896,10 @@ function renderTorqueRows(rows) {
 function renderTechnicalRows(category, rows) {
   if (category === "engine management") {
     renderEngineManagementRows(rows);
+    return;
+  }
+  if (category === "comfort electronics") {
+    renderComfortElectronicsRows(rows);
     return;
   }
   if (category === "repair manuals") {
