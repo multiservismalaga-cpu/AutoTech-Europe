@@ -83,3 +83,16 @@
   .torque-row{grid-template-columns:1fr}
   .torque-row>strong{font-size:13px}
 }
+
+
+.timing-legend{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 12px}
+.timing-legend span{padding:6px 9px;border:1px solid #244d69;border-radius:999px;color:#9fc0d5;font-size:10px}
+.timing-groups{display:grid;gap:12px}
+.timing-group{padding:10px;border:1px solid #193f60;border-radius:11px;background:#071728}
+.timing-list{display:grid;gap:7px}
+.timing-row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(170px,.75fr);gap:10px;padding:9px;border:1px solid #17364f;border-radius:9px;background:#081a2a}
+.timing-main{display:grid;gap:3px;min-width:0}
+.timing-main>b{color:#d9edf8;font-size:11px}
+.timing-main>span{color:#c5dcea;font-size:11px;line-height:1.35}
+.timing-source{font-size:10px;line-height:1.45;min-width:0}
+@media(max-width:760px){.timing-row{grid-template-columns:1fr}}
