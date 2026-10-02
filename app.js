@@ -665,6 +665,35 @@ function renderDiagnosisRows(rows) {
   const web=$("#webresults"); if(web) web.classList.add("hidden");
 }
 
+function renderEngineManagementRows(rows) {
+  const groups={};
+  rows.forEach(x => {
+    const f=String(x.field || "").toLowerCase();
+    let key="Gestión del motor";
+    if (/sensor|señal|signal|sonda/.test(f)) key="Sensores / señales";
+    else if (/actuador|actuator|válvula|valve|inyector|inject/.test(f)) key="Actuadores";
+    else if (/ecu|ecm|pcm|unidad|control|module/.test(f)) key="ECU / control";
+    else if (/presi[oó]n|pressure|volt|tensi[oó]n|resistencia|rpm|temperatura|temperature/.test(f)) key="Datos de prueba";
+    else if (/combust|fuel|inyecci|injection|aire|air|turbo|egr/.test(f)) key="Sistema de alimentación / aire";
+    (groups[key] ||= []).push(x);
+  });
+  const body='<p class="small">Datos de gestión del motor asociados exclusivamente a la variante seleccionada. Se muestran únicamente señales, componentes y valores documentados.</p>'+
+    '<div class="engine-legend"><span><b>'+rows.length+'</b> registros</span><span>Dato documentado</span><span>Fuente trazable</span></div>'+
+    '<div class="engine-groups">'+Object.entries(groups).map(([name,list])=>
+      '<section class="engine-group"><div class="module-data-group-head"><b>'+esc(name)+'</b><span>'+list.length+'</span></div>'+
+      '<div class="engine-table"><div class="engine-head"><span>Elemento / campo</span><span>Dato</span><span>Fuente</span></div>'+
+      list.map(x=>
+        '<article class="engine-row"><div class="engine-main"><b>'+esc(x.field)+'</b>'+(x.notes?'<small class="module-note">'+esc(x.notes)+'</small>':'')+'</div>'+
+        '<strong>'+esc(x.value || "—")+(x.unit?" "+esc(x.unit):"")+'</strong>'+
+        '<div class="engine-source"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+'</a><br>'+
+        esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+        (x.applicable_from || x.applicable_to?'<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+        '</div></article>').join("")+'</div></section>'
+    ).join("")+'</div>';
+  renderModuleContent("engine management","Gestión del motor",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
 function renderRepairManualRows(rows) {
   const groups={};
   rows.forEach(x => {
@@ -834,6 +863,10 @@ function renderTorqueRows(rows) {
 }
 
 function renderTechnicalRows(category, rows) {
+  if (category === "engine management") {
+    renderEngineManagementRows(rows);
+    return;
+  }
   if (category === "repair manuals") {
     renderRepairManualRows(rows);
     return;
