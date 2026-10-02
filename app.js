@@ -572,7 +572,72 @@ function technicalGroupKey(category, field) {
   return "Datos documentados";
 }
 
+function maintenanceIntervalLabel(x) {
+  const raw = [x.field, x.value, x.notes].filter(Boolean).join(" ");
+  const km = raw.match(/(?:cada|a los|hasta)\\s*([0-9][0-9. ]*)\\s*(km|kil[oó]metros?)/i) ||
+             raw.match(/([0-9][0-9. ]*)\\s*(km|kil[oó]metros?)/i);
+  const months = raw.match(/([0-9][0-9. ]*)\\s*(mes(?:es)?|a[nñ]os?)/i);
+  const parts = [];
+  if (km) parts.push(km[1].replace(/\\s/g,"") + " km");
+  if (months) parts.push(months[1].replace(/\\s/g,"") + " " + months[2].toLowerCase());
+  return parts.join(" / ") || "Según registro";
+}
+
+function maintenanceOperationLabel(x) {
+  const f=String(x.field || "").trim();
+  if (f) return f;
+  return "Operación de mantenimiento";
+}
+
+function renderMaintenanceRows(rows) {
+  const groups = {};
+  rows.forEach(x => {
+    const key = /refriger|coolant|anticongel/i.test(String(x.field || "")) ? "Refrigeración" :
+      /aceite|oil|filtro|filter/i.test(String(x.field || "")) ? "Motor" :
+      /freno|brake/i.test(String(x.field || "")) ? "Frenos" :
+      /buj|spark|combust|fuel/i.test(String(x.field || "")) ? "Motor / combustión" :
+      /bater|hybrid|hev|hsg/i.test(String(x.field || "")) ? "Sistema híbrido / batería" :
+      "Operaciones documentadas";
+    (groups[key] ||= []).push(x);
+  });
+
+  const sections = Object.entries(groups).map(([group, items]) =>
+    '<section class="maintenance-group">' +
+      '<div class="module-data-group-head"><b>' + esc(group) + '</b><span>' + items.length + '</span></div>' +
+      '<div class="maintenance-list">' +
+      items.map((x,i) =>
+        '<article class="maintenance-item">' +
+          '<div class="maintenance-check"><span class="maintenance-index">' + (i+1) + '</span></div>' +
+          '<div class="maintenance-main"><b>' + esc(maintenanceOperationLabel(x)) + '</b>' +
+            '<span>' + esc(x.value || "") + (x.unit ? " " + esc(x.unit) : "") + '</span>' +
+            '<small class="module-note">' + esc(maintenanceIntervalLabel(x)) +
+            (x.notes ? " · " + esc(x.notes) : "") + '</small>' +
+          '</div>' +
+          '<div class="maintenance-source small"><a class="source" target="_blank" rel="noopener" href="' +
+            esc(x.source_url || "#") + '">' + esc(x.source_title || "Fuente técnica") +
+          '</a><br>' + esc(x.source_class || "") + ' · ' + esc(x.confidence || "") +
+          (x.applicable_from || x.applicable_to ? '<br>Aplicación: ' + esc(x.applicable_from || "—") + '–' + esc(x.applicable_to || "—") : "") +
+          '</div>' +
+        '</article>'
+      ).join("") +
+      '</div>' +
+    '</section>'
+  ).join("");
+
+  const body =
+    '<p class="small">Checklist de mantenimiento de la variante. Los intervalos se presentan tal como están documentados; no se calculan intervalos nuevos.</p>' +
+    '<div class="maintenance-legend"><span><b>' + rows.length + '</b> operaciones documentadas</span><span>Fuente y aplicabilidad visibles por operación</span></div>' +
+    '<div class="maintenance-groups">' + sections + '</div>';
+  renderModuleContent("maintenance","Esquema de mantenimiento",body,"CONTRASTADO");
+  const web=$("#webresults");
+  if(web) web.classList.add("hidden");
+}
+
 function renderTechnicalRows(category, rows) {
+  if (category === "maintenance") {
+    renderMaintenanceRows(rows);
+    return;
+  }
   const meta = technicalModuleMeta(category);
   const groups = {};
   rows.forEach(x => {
