@@ -26,4 +26,9 @@
 
 .module-data-count{display:inline-block;margin:4px 0 10px;padding:4px 8px;border:1px solid #244d69;border-radius:999px;color:#9fc0d5;font-size:10px;font-weight:800;text-transform:uppercase}
 .module-records{display:grid;gap:7px}
+.module-data-groups{display:grid;gap:10px}
+.module-data-group{padding:10px;border:1px solid #193f60;border-radius:11px;background:#071728}
+.module-data-group-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;color:#d9edf8;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.module-data-group-head span{min-width:22px;padding:3px 7px;border:1px solid #244d69;border-radius:999px;text-align:center;color:#9fc0d5;font-size:9px}
+
 .module-note{display:block;margin-top:5px;color:#8ea8bc;line-height:1.35}
