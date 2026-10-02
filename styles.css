@@ -109,3 +109,21 @@
 .fluid-main>span{color:#c5dcea;font-size:11px;line-height:1.35}
 .fluid-source{font-size:10px;line-height:1.45;min-width:0}
 @media(max-width:760px){.fluid-row{grid-template-columns:1fr}}
+
+
+.fuse-legend{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 12px}
+.fuse-legend span{padding:6px 9px;border:1px solid #244d69;border-radius:999px;color:#9fc0d5;font-size:10px}
+.fuse-groups{display:grid;gap:12px}
+.fuse-group{padding:10px;border:1px solid #193f60;border-radius:11px;background:#071728}
+.fuse-table{display:grid;gap:6px}
+.fuse-head,.fuse-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(90px,.5fr) minmax(180px,1.3fr);gap:10px;align-items:center}
+.fuse-head{padding:5px 8px;color:#789db7;font-size:9px;text-transform:uppercase;letter-spacing:.05em}
+.fuse-row{padding:9px;border:1px solid #17364f;border-radius:9px;background:#081a2a}
+.fuse-row>div:first-child{min-width:0}
+.fuse-row>div:first-child>b{color:#d9edf8;font-size:11px}
+.fuse-row>strong{font-size:13px;color:#f0f7fb;white-space:nowrap}
+.fuse-source{font-size:10px;line-height:1.45;min-width:0}
+@media(max-width:760px){
+  .fuse-head{display:none}
+  .fuse-row{grid-template-columns:1fr}
+}
