@@ -49,3 +49,18 @@
   .maintenance-item{grid-template-columns:28px minmax(0,1fr)}
   .maintenance-source{grid-column:2}
 }
+
+
+.diagnosis-legend{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 12px}
+.diagnosis-legend span{padding:6px 9px;border:1px solid #244d69;border-radius:999px;color:#9fc0d5;font-size:10px}
+.diagnosis-groups{display:grid;gap:12px}
+.diagnosis-group{padding:10px;border:1px solid #193f60;border-radius:11px;background:#071728}
+.diagnosis-list{display:grid;gap:7px}
+.diagnosis-item{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,.55fr);gap:10px;padding:9px;border:1px solid #17364f;border-radius:9px;background:#081a2a}
+.diagnosis-item>div:first-child{display:grid;gap:3px;min-width:0}
+.diagnosis-item>div:first-child>b{color:#d9edf8;font-size:11px}
+.diagnosis-item>div:first-child>span{color:#c5dcea;font-size:11px;line-height:1.35}
+.diagnosis-source{line-height:1.45;min-width:0}
+@media(max-width:760px){
+  .diagnosis-item{grid-template-columns:1fr}
+}
