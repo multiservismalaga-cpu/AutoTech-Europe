@@ -528,26 +528,60 @@ function renderEvidenceRows(category, rows) {
   renderModuleContent(category,title,body,"EVIDENCIA WEB");
 }
 
+function technicalModuleMeta(category) {
+  const meta = {
+    "timing": ["Distribución", "La información se muestra únicamente cuando existe un registro específico de la variante. No se extrapola una cadena o correa por familia de motor."],
+    "diagnosis": ["Diagnóstico", "Pruebas, códigos y procedimientos documentados para la variante. Los resultados web permanecen separados de los datos contrastados."],
+    "drawings": ["Esquemas", "Esquemas y referencias eléctricas asociadas a la variante, cuando están documentados."],
+    "fuses": ["Fusibles", "Posiciones y funciones documentadas de fusibles y cajas. No se rellenan amperajes por modelo similar."],
+    "oem": ["OEM / referencias", "Referencias de fabricante asociadas al componente o sistema concreto. La coincidencia de nombre no se considera equivalencia OEM."],
+    "repair manuals": ["Reparación", "Procedimientos de reparación documentados y ligados a la variante o documento de origen."],
+    "engine management": ["Gestión motor", "Sistemas de gestión, componentes y procedimientos de diagnosis asociados al motor/variante."],
+    "comfort electronics": ["Electrónica confort", "Sistemas de carrocería y confort documentados para la variante."],
+    "repair times": ["Tiempos reparación", "Tiempos documentados. No se generan tiempos estimados a partir de experiencia general."],
+    "recalls": ["Recalls", "Campañas documentadas y su aplicabilidad. La ausencia de datos locales no significa que no existan campañas."],
+    "smart fix": ["Smart Fix / Cases", "Casos y soluciones documentadas. Se conserva la fuente y el alcance original."],
+    "cost estimate": ["Coste estimado", "Módulo preparado para costes trazables; no se inventan precios ni tiempos cuando no están documentados."]
+  };
+  return meta[category] || [(modules.find(m=>m[1]===category)||[category])[0], "Datos técnicos asociados directamente a la variante seleccionada y trazables a su fuente."];
+}
+
 function renderTechnicalRows(category, rows) {
-  const title=(modules.find(m=>m[1]===category)||[category])[0];
-  const intro = category === "maintenance"
-    ? "Calendario y operaciones documentadas para la variante exacta. Los intervalos mantienen las condiciones y el alcance de la fuente."
-    : category === "lubricants"
-      ? "Fluidos, capacidades y especificaciones documentadas para esta variante. Una capacidad no implica por sí sola un procedimiento de llenado."
-      : category === "torque"
-        ? "Pares de apriete documentados. Cuando existe un rango o condición de aplicación, se conserva tal como aparece en la fuente."
-        : "Datos técnicos asociados directamente a la variante seleccionada. Cada fila conserva su fuente y periodo de aplicación.";
-  const rowsHtml = rows.map((x) => {
-    const value = esc(x.value || "—") + (x.unit ? " " + esc(x.unit) : "");
-    const source = '<div class="small"><a class="source" target="_blank" rel="noopener" href="' + esc(x.source_url || "#") + '">' +
-      esc(x.source_title || "Fuente") + '</a><br>' + esc(x.source_class || "") + ' · ' +
-      esc(x.confidence || "") + (x.applicable_from || x.applicable_to ? ' · ' + esc(x.applicable_from || "") + "–" + esc(x.applicable_to || "") : "") +
-      '</div>';
-    return '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' + value + '</span>' +
-      (x.notes ? '<small class="module-note">' + esc(x.notes) + '</small>' : '') + '</div>' + source + '</div>';
+  const [title, intro] = technicalModuleMeta(category);
+  const groups = {};
+  rows.forEach(x => {
+    const key = (x.field || "Dato").toString().toLowerCase();
+    let group = "Datos documentados";
+    if (category === "maintenance") group = /interval|reempl|inspec|servic|cambio|km|mes|año/.test(key) ? "Intervalos y operaciones" : "Mantenimiento";
+    if (category === "lubricants") group = /aceite|oil|fluido|refriger|coolant|capacidad|volume|dot|sae|acea|api/.test(key) ? "Fluidos y especificaciones" : "Aplicación";
+    if (category === "torque") group = /par|torque|ángulo|angle|torn|bolt|tuerca|nut/.test(key) ? "Pares de apriete" : "Condiciones";
+    if (category === "timing") group = /cadena|chain|correa|belt|tensor|tension|distrib/.test(key) ? "Distribución" : "Procedimiento";
+    if (category === "diagnosis") group = /dtc|codigo|code|síntoma|symptom|prueba|test|valor|value|fallo|fault/.test(key) ? "Diagnosis" : "Datos de prueba";
+    if (category === "fuses") group = /fus|fuse|amp|posición|position|caja|box/.test(key) ? "Caja y posiciones" : "Funciones";
+    if (category === "oem") group = /oem|ref|part|pieza|código|code/.test(key) ? "Referencias" : "Aplicación";
+    if (category === "repair times") group = /tiempo|time|hora|hour|operación|operation/.test(key) ? "Operaciones y tiempos" : "Aplicación";
+    (groups[group] ||= []).push(x);
+  });
+
+  const groupHtml = Object.entries(groups).map(([group, items]) => {
+    const rowsHtml = items.map(x => {
+      const value = esc(x.value || "—") + (x.unit ? " " + esc(x.unit) : "");
+      const period = x.applicable_from || x.applicable_to
+        ? ' · ' + esc(x.applicable_from || "") + "–" + esc(x.applicable_to || "")
+        : "";
+      const source = '<div class="small"><a class="source" target="_blank" rel="noopener" href="' + esc(x.source_url || "#") + '">' +
+        esc(x.source_title || "Fuente") + '</a><br>' + esc(x.source_class || "") + ' · ' +
+        esc(x.confidence || "") + period + '</div>';
+      return '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' + value + '</span>' +
+        (x.notes ? '<small class="module-note">' + esc(x.notes) + '</small>' : '') +
+        '</div>' + source + '</div>';
+    }).join("");
+    return '<section class="module-data-group"><div class="module-data-group-head"><b>' + esc(group) +
+      '</b><span>' + items.length + '</span></div><div class="module-records">' + rowsHtml + '</div></section>';
   }).join("");
+
   renderModuleContent(category,title,'<p class="small">' + intro + '</p><div class="module-data-count">' +
-    rows.length + ' registros documentados</div><div class="module-records">' + rowsHtml + '</div>',"CONTRASTADO");
+    rows.length + ' registros documentados</div><div class="module-data-groups">' + groupHtml + '</div>',"CONTRASTADO");
 }
 
 async function runResearch(payload) {
