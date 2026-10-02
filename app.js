@@ -530,8 +530,24 @@ function renderEvidenceRows(category, rows) {
 
 function renderTechnicalRows(category, rows) {
   const title=(modules.find(m=>m[1]===category)||[category])[0];
-  const body='<p class="small">Datos técnicos asociados directamente a la variante seleccionada. Cada fila conserva su fuente y periodo de aplicación.</p>' + rows.map((x) => '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' + esc(x.value) + (x.unit ? " " + esc(x.unit) : "") + '</span></div><div class="small"><a class="source" target="_blank" rel="noopener" href="' + esc(x.source_url) + '">' + esc(x.source_title) + '</a><br>' + esc(x.source_class) + " · " + esc(x.confidence) + " · " + esc(x.applicable_from || "") + "–" + esc(x.applicable_to || "") + '</div></div>').join("");
-  renderModuleContent(category,title,body,"CONTRASTADO");
+  const intro = category === "maintenance"
+    ? "Calendario y operaciones documentadas para la variante exacta. Los intervalos mantienen las condiciones y el alcance de la fuente."
+    : category === "lubricants"
+      ? "Fluidos, capacidades y especificaciones documentadas para esta variante. Una capacidad no implica por sí sola un procedimiento de llenado."
+      : category === "torque"
+        ? "Pares de apriete documentados. Cuando existe un rango o condición de aplicación, se conserva tal como aparece en la fuente."
+        : "Datos técnicos asociados directamente a la variante seleccionada. Cada fila conserva su fuente y periodo de aplicación.";
+  const rowsHtml = rows.map((x) => {
+    const value = esc(x.value || "—") + (x.unit ? " " + esc(x.unit) : "");
+    const source = '<div class="small"><a class="source" target="_blank" rel="noopener" href="' + esc(x.source_url || "#") + '">' +
+      esc(x.source_title || "Fuente") + '</a><br>' + esc(x.source_class || "") + ' · ' +
+      esc(x.confidence || "") + (x.applicable_from || x.applicable_to ? ' · ' + esc(x.applicable_from || "") + "–" + esc(x.applicable_to || "") : "") +
+      '</div>';
+    return '<div class="tech-row"><div><b>' + esc(x.field) + '</b><span>' + value + '</span>' +
+      (x.notes ? '<small class="module-note">' + esc(x.notes) + '</small>' : '') + '</div>' + source + '</div>';
+  }).join("");
+  renderModuleContent(category,title,'<p class="small">' + intro + '</p><div class="module-data-count">' +
+    rows.length + ' registros documentados</div><div class="module-records">' + rowsHtml + '</div>',"CONTRASTADO");
 }
 
 async function runResearch(payload) {
