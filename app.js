@@ -665,6 +665,34 @@ function renderDiagnosisRows(rows) {
   const web=$("#webresults"); if(web) web.classList.add("hidden");
 }
 
+function renderFuseRows(rows) {
+  const groups={};
+  rows.forEach(x => {
+    const f=String(x.field || "").toLowerCase();
+    let key="Caja / posiciones";
+    if (/habit[aá]culo|interior|junction|ib|i/p|i.p/.test(f)) key="Caja habitáculo";
+    else if (/motor|engine|e/r|under hood|cap[oó]/.test(f)) key="Caja motor";
+    else if (/fusible|fuse|rel[eé]|relay/.test(f)) key="Fusibles y relés";
+    else if (/amper|a\b|amp/.test(f)) key="Amperaje";
+    (groups[key] ||= []).push(x);
+  });
+  const body='<p class="small">Información de fusibles y relés asociada exclusivamente a la variante seleccionada. Se conserva la posición, función y amperaje tal como estén documentados.</p>'+
+    '<div class="fuse-legend"><span><b>'+rows.length+'</b> registros</span><span>Posición documentada</span><span>Función original</span></div>'+
+    '<div class="fuse-groups">'+Object.entries(groups).map(([name,list])=>
+      '<section class="fuse-group"><div class="module-data-group-head"><b>'+esc(name)+'</b><span>'+list.length+'</span></div>'+
+      '<div class="fuse-table"><div class="fuse-head"><span>Posición / campo</span><span>Valor</span><span>Función / fuente</span></div>'+
+      list.map(x=>'<article class="fuse-row"><div><b>'+esc(x.field)+'</b></div>'+
+      '<strong>'+esc(x.value || "—")+(x.unit?" "+esc(x.unit):"")+'</strong>'+
+      '<div class="fuse-source">'+(x.notes?'<span>'+esc(x.notes)+'</span><br>':'')+
+      '<a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+'</a><br>'+
+      esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+      (x.applicable_from || x.applicable_to?'<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+      '</div></article>').join("")+'</div></section>'
+    ).join("")+'</div>';
+  renderModuleContent("fuses","Fusibles y relés",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
 function renderLubricantRows(rows) {
   const groups={};
   rows.forEach(x => {
@@ -751,6 +779,10 @@ function renderTorqueRows(rows) {
 }
 
 function renderTechnicalRows(category, rows) {
+  if (category === "fuses") {
+    renderFuseRows(rows);
+    return;
+  }
   if (category === "lubricants") {
     renderLubricantRows(rows);
     return;
