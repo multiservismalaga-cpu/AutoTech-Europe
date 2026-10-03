@@ -1253,6 +1253,18 @@ def save_vin(payload:dict):
     if not re.fullmatch(r"[A-HJ-NPR-Z0-9]{17}",raw):
         return JSONResponse({"ok":False,"error":"El VIN debe tener 17 caracteres válidos (sin I, O ni Q)."},status_code=400)
     vehicle_id=payload.get("vehicle_id")
+    if vehicle_id:
+        vehicle_id=str(vehicle_id).strip()
+        c=db()
+        try:
+            vehicle_exists=c.execute("SELECT 1 FROM vehicles WHERE id=? LIMIT 1",(vehicle_id,)).fetchone()
+        finally:
+            c.close()
+        if not vehicle_exists and not get_vehicle_variant(vehicle_id):
+            return JSONResponse(
+                {"ok":False,"error":"El vehicle_id no corresponde a un vehículo o variante conocida."},
+                status_code=422,
+            )
     now=datetime.now(timezone.utc).isoformat()
     c=db()
     try:
