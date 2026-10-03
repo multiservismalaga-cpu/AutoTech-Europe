@@ -73,7 +73,7 @@ def _init_postgres_db():
     CREATE INDEX IF NOT EXISTS idx_vehicle_make ON vehicles(make);
     CREATE INDEX IF NOT EXISTS idx_vehicle_model ON vehicles(model);
     CREATE TABLE IF NOT EXISTS saved_vehicles(
-      id BIGSERIAL PRIMARY KEY, vin TEXT UNIQUE NOT NULL, vehicle_id TEXT, created_at TEXT NOT NULL
+      id BIGSERIAL PRIMARY KEY, vin TEXT UNIQUE NOT NULL, vehicle_id TEXT, variant_id TEXT, created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_saved_vehicle_vin ON saved_vehicles(vin);
     CREATE TABLE IF NOT EXISTS evidence(
@@ -116,6 +116,7 @@ def _init_postgres_db():
         statement = statement.strip()
         if statement:
             c.execute(statement)
+    c.execute("ALTER TABLE saved_vehicles ADD COLUMN IF NOT EXISTS variant_id TEXT")
     c.commit()
     c.close()
 
@@ -136,7 +137,7 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_vehicle_model ON vehicles(model);
     CREATE TABLE IF NOT EXISTS saved_vehicles(
       id INTEGER PRIMARY KEY AUTOINCREMENT, vin TEXT UNIQUE NOT NULL,
-      vehicle_id TEXT, created_at TEXT NOT NULL
+      vehicle_id TEXT, variant_id TEXT, created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_saved_vehicle_vin ON saved_vehicles(vin);
     CREATE TABLE IF NOT EXISTS evidence(
@@ -201,6 +202,9 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_vehicle_variant_map_variant
       ON vehicle_variant_map(variant_id);
     """)
+    saved_vehicle_cols={r["name"] for r in c.execute("PRAGMA table_info(saved_vehicles)").fetchall()}
+    if "variant_id" not in saved_vehicle_cols:
+        c.execute("ALTER TABLE saved_vehicles ADD COLUMN variant_id TEXT")
     evidence_cols={r["name"] for r in c.execute("PRAGMA table_info(evidence)").fetchall()}
     if "variant_id" not in evidence_cols:
         c.execute("ALTER TABLE evidence ADD COLUMN variant_id TEXT")
@@ -1253,6 +1257,7 @@ def save_vin(payload:dict):
     if not re.fullmatch(r"[A-HJ-NPR-Z0-9]{17}",raw):
         return JSONResponse({"ok":False,"error":"El VIN debe tener 17 caracteres válidos (sin I, O ni Q)."},status_code=400)
     vehicle_id=payload.get("vehicle_id")
+    variant_id=payload.get("variant_id")
     if vehicle_id:
         vehicle_id=str(vehicle_id).strip()
         c=db()
@@ -1260,29 +1265,42 @@ def save_vin(payload:dict):
             vehicle_exists=c.execute("SELECT 1 FROM vehicles WHERE id=? LIMIT 1",(vehicle_id,)).fetchone()
         finally:
             c.close()
-        if not vehicle_exists and not get_vehicle_variant(vehicle_id):
+        if not vehicle_exists:
             return JSONResponse(
-                {"ok":False,"error":"El vehicle_id no corresponde a un vehículo o variante conocida."},
+                {"ok":False,"error":"El vehicle_id no corresponde a un vehículo de catálogo."},
+                status_code=422,
+            )
+    if variant_id:
+        variant_id=str(variant_id).strip()
+        c=db()
+        try:
+            variant_exists=c.execute("SELECT 1 FROM vehicle_variants WHERE variant_id=? LIMIT 1",(variant_id,)).fetchone()
+        finally:
+            c.close()
+        if not variant_exists:
+            return JSONResponse(
+                {"ok":False,"error":"El variant_id no corresponde a una variante canónica conocida."},
                 status_code=422,
             )
     now=datetime.now(timezone.utc).isoformat()
     c=db()
     try:
-        c.execute("""INSERT INTO saved_vehicles(vin,vehicle_id,created_at)
-                     VALUES(?,?,?)
+        c.execute("""INSERT INTO saved_vehicles(vin,vehicle_id,variant_id,created_at)
+                     VALUES(?,?,?,?)
                      ON CONFLICT(vin) DO UPDATE SET
                        vehicle_id=excluded.vehicle_id,
-                       created_at=excluded.created_at""",(raw,vehicle_id,now))
+                       variant_id=excluded.variant_id,
+                       created_at=excluded.created_at""",(raw,vehicle_id,variant_id,now))
         c.commit()
     finally:
         c.close()
-    return {"ok":True,"vin":raw,"vehicle_id":vehicle_id,"saved_at":now}
+    return {"ok":True,"vin":raw,"vehicle_id":vehicle_id,"variant_id":variant_id,"saved_at":now}
 
 @app.get("/api/vin/{vin}")
 def get_vin(vin:str):
     raw=vin.strip().upper().replace(" ","").replace("-","")
     c=db()
-    row=c.execute("SELECT vin,vehicle_id,created_at FROM saved_vehicles WHERE vin=?",(raw,)).fetchone()
+    row=c.execute("SELECT vin,vehicle_id,variant_id,created_at FROM saved_vehicles WHERE vin=?",(raw,)).fetchone()
     c.close()
     if not row:
         return JSONResponse({"error":"VIN no encontrado"},status_code=404)
