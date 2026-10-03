@@ -309,7 +309,11 @@ async function saveHomeVin() {
     const r = await api("/api/vin", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({vin,vehicle_id:selected?.id || null})
+      body:JSON.stringify({
+        vin,
+        vehicle_id:selected?.is_variant ? null : (selected?.id || null),
+        variant_id:selected?.is_variant ? (selected?.id || null) : null
+      })
     });
     showStatus(r.ok ? "VIN guardado en la base local." : "No se pudo guardar el VIN.");
   } catch (e) {
@@ -483,7 +487,11 @@ async function saveVin() {
     const r = await api("/api/vin", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({vin, vehicle_id:selected?.id || null})
+      body:JSON.stringify({
+        vin,
+        vehicle_id:selected?.is_variant ? null : (selected?.id || null),
+        variant_id:selected?.is_variant ? (selected?.id || null) : null
+      })
     });
     $("#vinstatus").textContent = r.ok ? "VIN guardado para este vehículo." : "No se pudo guardar el VIN.";
   } catch (e) {
