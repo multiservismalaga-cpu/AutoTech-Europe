@@ -893,7 +893,69 @@ function renderTorqueRows(rows) {
   const web=$("#webresults"); if(web) web.classList.add("hidden");
 }
 
+function renderRecallRows(rows) {
+  const groups={};
+  rows.forEach(x => {
+    const f=String([x.field,x.value,x.notes].filter(Boolean).join(" ")).toLowerCase();
+    let key="Campañas documentadas";
+    if (/vin|bastidor|producci[oó]n|aplic|model|a[nñ]o|fecha/.test(f)) key="Aplicabilidad";
+    else if (/riesgo|seguridad|safety|peligro|defecto|problema|incidencia/.test(f)) key="Riesgo / condición";
+    else if (/repar|soluci[oó]n|remedio|acci[oó]n|sustitu|actualiz|correg/.test(f)) key="Acción de reparación";
+    (groups[key] ||= []).push(x);
+  });
+  const body='<p class="small">Campañas y recalls asociados exclusivamente a la variante seleccionada. Se muestran únicamente registros documentados; la ausencia de un registro local no implica que no exista una campaña en otra fuente.</p>'+
+    '<div class="recall-legend"><span><b>'+rows.length+'</b> registros</span><span>Aplicabilidad visible</span><span>Fuente trazable</span></div>'+
+    '<div class="recall-groups">'+Object.entries(groups).map(([name,list])=>
+      '<section class="recall-group"><div class="module-data-group-head"><b>'+esc(name)+'</b><span>'+list.length+'</span></div>'+
+      '<div class="recall-list">'+list.map((x,i)=>
+        '<article class="recall-row"><div class="recall-main"><b>'+esc(x.field || "Registro de campaña")+'</b><span>'+esc(x.value || "—")+(x.unit?" "+esc(x.unit):"")+'</span>'+
+        (x.notes?'<small class="module-note">'+esc(x.notes)+'</small>':'')+
+        '</div><div class="recall-source"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+'</a><br>'+
+        esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+        (x.applicable_from || x.applicable_to?'<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+        '</div></article>').join("")+'</div></section>'
+    ).join("")+'</div>';
+  renderModuleContent("recalls","Campañas de reparación",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
+function renderSmartFixRows(rows) {
+  const groups={};
+  rows.forEach(x => {
+    const f=String([x.field,x.value,x.notes].filter(Boolean).join(" ")).toLowerCase();
+    let key="Casos documentados";
+    if (/s[ií]ntoma|symptom|queja|complaint|fallo|problema|incidencia/.test(f)) key="Síntoma / incidencia";
+    else if (/causa|diagn[oó]st|c[oó]digo|dtc|fault|origen/.test(f)) key="Causa / diagnosis";
+    else if (/soluci[oó]n|fix|remedio|repar|proced|acci[oó]n|sustitu|actualiz|correg/.test(f)) key="Solución / reparación";
+    else if (/pieza|part|herramient|tool|componente/.test(f)) key="Piezas / herramientas";
+    else if (/aplic|condici[oó]n|modelo|motor|fecha|vin/.test(f)) key="Condiciones / aplicabilidad";
+    (groups[key] ||= []).push(x);
+  });
+  const body='<p class="small">Casos y soluciones técnicas asociados exclusivamente a la variante seleccionada. Se conserva el texto documentado y su fuente; no se generan diagnósticos ni soluciones nuevas.</p>'+
+    '<div class="smartfix-legend"><span><b>'+rows.length+'</b> registros</span><span>Síntoma y solución separados</span><span>Fuente trazable</span></div>'+
+    '<div class="smartfix-groups">'+Object.entries(groups).map(([name,list])=>
+      '<section class="smartfix-group"><div class="module-data-group-head"><b>'+esc(name)+'</b><span>'+list.length+'</span></div>'+
+      '<div class="smartfix-list">'+list.map(x=>
+        '<article class="smartfix-row"><div class="smartfix-main"><b>'+esc(x.field || "Registro técnico")+'</b><span>'+esc(x.value || "—")+(x.unit?" "+esc(x.unit):"")+'</span>'+
+        (x.notes?'<small class="module-note">'+esc(x.notes)+'</small>':'')+
+        '</div><div class="smartfix-source"><a class="source" target="_blank" rel="noopener" href="'+esc(x.source_url || "#")+'">'+esc(x.source_title || "Fuente técnica")+'</a><br>'+
+        esc(x.source_class || "")+' · '+esc(x.confidence || "")+
+        (x.applicable_from || x.applicable_to?'<br>Aplicación: '+esc(x.applicable_from || "—")+'–'+esc(x.applicable_to || "—"):"")+
+        '</div></article>').join("")+'</div></section>'
+    ).join("")+'</div>';
+  renderModuleContent("smart fix","Smart Fix / Cases",body,"CONTRASTADO");
+  const web=$("#webresults"); if(web) web.classList.add("hidden");
+}
+
 function renderTechnicalRows(category, rows) {
+  if (category === "recalls") {
+    renderRecallRows(rows);
+    return;
+  }
+  if (category === "smart fix") {
+    renderSmartFixRows(rows);
+    return;
+  }
   if (category === "engine management") {
     renderEngineManagementRows(rows);
     return;
