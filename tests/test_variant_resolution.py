@@ -363,6 +363,36 @@ class VariantResolutionRegression(unittest.TestCase):
         self.assertEqual(row["document_source_class"], "TEST")
         self.assertIsNotNone(row["source_document_id"])
 
+    def test_saved_vin_rejects_unknown_vehicle_id(self):
+        response = main.save_vin({
+            "vin": "KMHHA8110SU155502",
+            "vehicle_id": "test/unknown-vehicle",
+        })
+        self.assertEqual(response.status_code, 422)
+
+    def test_saved_vin_keeps_variant_id_separate_from_vehicle_id(self):
+        result = main.save_vin({
+            "vin": "KMHHA8110SU155502",
+            "vehicle_id": None,
+            "variant_id": "car/hyundai/kona-sx2-hev-2025",
+        })
+        self.assertTrue(result["ok"])
+        c = main.db()
+        row = c.execute(
+            "SELECT vehicle_id,variant_id FROM saved_vehicles WHERE vin=?",
+            ("KMHHA8110SU155502",),
+        ).fetchone()
+        c.close()
+        self.assertIsNone(row["vehicle_id"])
+        self.assertEqual(row["variant_id"], "car/hyundai/kona-sx2-hev-2025")
+
+    def test_saved_vin_rejects_variant_id_in_vehicle_field(self):
+        response = main.save_vin({
+            "vin": "KMHHA8110SU155503",
+            "vehicle_id": "car/hyundai/kona-sx2-hev-2025",
+        })
+        self.assertEqual(response.status_code, 422)
+
     def test_source_document_schema_is_present(self):
         c = main.db()
         cols = {r["name"] for r in c.execute("PRAGMA table_info(source_documents)").fetchall()}
